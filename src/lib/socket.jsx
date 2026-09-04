@@ -7,13 +7,8 @@ import { API_ORIGIN, API_BASE_PATH } from './apiConfig'
 // safe, since React (StrictMode in particular) can invoke that factory more than
 // once per mount, producing two competing connections where only one ends up wired
 // to the component tree's listeners.
-// The socket.io handshake lives under the same `/crm-whatsapp` prefix as the REST API
-// in dev. In production API_ORIGIN is '' (same-origin, proxied by netlify.toml), and
-// socket.io-client's url argument must be omitted entirely — not passed as '' — for
-// it to correctly default to the page's own origin.
-const socket = API_ORIGIN
-  ? io(API_ORIGIN, { path: `${API_BASE_PATH}/socket.io`, autoConnect: true })
-  : io({ path: `${API_BASE_PATH}/socket.io`, autoConnect: true })
+// The socket.io handshake lives under the same `/crm-whatsapp` prefix as the REST API.
+const socket = io(API_ORIGIN, { path: `${API_BASE_PATH}/socket.io`, autoConnect: true })
 
 const SocketContext = createContext(null)
 
