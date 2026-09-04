@@ -1,0 +1,8 @@
+# Same rules as netlify.toml, duplicated here so they still apply even if the site
+# is deployed by uploading the built `dist/` folder directly rather than letting
+# Netlify build from git (in that case netlify.toml at the repo level is never read —
+# only a _redirects file physically inside the published folder is).
+/api/*  http://52.76.199.149:3000/crm-whatsapp/api/:splat  200!
+/media/*  http://52.76.199.149:3000/crm-whatsapp/media/:splat  200!
+/socket.io/*  http://52.76.199.149:3000/crm-whatsapp/socket.io/:splat  200!
+/*  /index.html  200

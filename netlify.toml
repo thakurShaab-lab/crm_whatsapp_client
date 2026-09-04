@@ -1,0 +1,36 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# Proxied server-to-server from Netlify's edge to the HTTP-only API — this is what
+# lets the HTTPS-served site reach it at all: a browser on this HTTPS page would be
+# blocked outright from calling a plain-HTTP origin directly (mixed content), but
+# Netlify's own edge-to-origin hop isn't subject to that browser rule. The frontend
+# calls these same relative paths on its own origin (see src/lib/apiConfig.js).
+[[redirects]]
+  from = "/api/*"
+  to = "http://52.76.199.149:3000/crm-whatsapp/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/media/*"
+  to = "http://52.76.199.149:3000/crm-whatsapp/media/:splat"
+  status = 200
+  force = true
+
+# Netlify's redirect proxy doesn't upgrade to a WebSocket, so this connection stays
+# on socket.io's HTTP long-polling transport — functionally equivalent for this app,
+# just without the WebSocket upgrade.
+[[redirects]]
+  from = "/socket.io/*"
+  to = "http://52.76.199.149:3000/crm-whatsapp/socket.io/:splat"
+  status = 200
+  force = true
+
+# Client-side routing (react-router) fallback — must stay last so it doesn't shadow
+# the proxy rules above.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

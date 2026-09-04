@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  /* Default values here are the dark theme; light-theme values override the same
+     custom properties under [data-theme="light"] below, so every `bg-wa-*`/`text-wa-*`
+     utility re-themes automatically with no per-component changes needed. */
+  /* --color-wa-bg: #111b21; app shell / sidebar background */
+  --color-wa-bg: #000000; /* app shell / sidebar background */
+  --color-wa-panel: #20282a; /* headers, panels, incoming bubble */
+  --color-wa-panel-hover: #20282a; /* list row hover / composer input bg */
+  --color-wa-panel-textarea: #000000; /* list row hover / composer input bg */
+  --color-wa-chat-bg: #0b141a; /* message list background (fallback under the wallpaper image) */
+  --color-wa-border: #222d34;
+  --color-wa-text-primary: #e9edef;
+  --color-wa-text-secondary: #8696a0;
+  --color-wa-green: #00a884; /* accent, unread badge, active tab */
+  --color-wa-green-dark: #06cf9c;
+  --color-wa-outgoing: #005c4b; /* outgoing bubble */
+  --color-wa-outgoing-hover: #026a58;
+  --color-wa-tick-read: #53bdeb;
+  --color-wa-danger: #f15c6d;
+  --color-wa-scrollbar: #374045;
+}
+
+:root {
+  --chat-bg-image: url("/chat-dark-bg.jpg");
+}
+
+[data-theme="light"] {
+  --color-wa-bg: #ffffff;
+  --color-wa-panel: #ffffff;
+  --color-wa-panel-hover: #f0f2f5;
+  --color-wa-chat-bg: #efeae2;
+  --color-wa-border: #ffffff;
+  --color-wa-text-primary: #111b21;
+  --color-wa-text-secondary: #667781;
+  --color-wa-green: #00a884;
+  --color-wa-green-dark: #06cf9c;
+  --color-wa-outgoing: #d9fdd3;
+  --color-wa-outgoing-hover: #c6f4bd;
+  --color-wa-tick-read: #53bdeb;
+  --color-wa-danger: #ea0038;
+  --color-wa-scrollbar: #c1c1c1;
+
+  --chat-bg-image: url("/chat-light-bg.jpg");
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-wa-bg);
+  color: var(--color-wa-text-primary);
+  font-family: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.chat-wallpaper {
+  background-image: var(--chat-bg-image);
+  background-repeat: repeat;
+  background-size: 412px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-wa-scrollbar);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
