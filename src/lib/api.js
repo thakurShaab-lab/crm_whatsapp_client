@@ -51,6 +51,10 @@ export function markConversationRead(mobile) {
   return request(`/conversations/${mobile}/read`, { method: 'POST' })
 }
 
+export function deleteConversation(mobile) {
+  return request(`/conversations/${mobile}`, { method: 'DELETE' })
+}
+
 export function sendMessage(mobile, { text, files }) {
   const form = new FormData()
   if (text) form.append('text', text)

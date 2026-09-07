@@ -19,6 +19,11 @@ export const markConversationRead = createAsyncThunk('conversations/markRead', a
   return mobile
 })
 
+export const deleteConversation = createAsyncThunk('conversations/delete', async (mobile) => {
+  await api.deleteConversation(mobile)
+  return mobile
+})
+
 const conversationsSlice = createSlice({
   name: 'conversations',
   initialState: {
@@ -59,6 +64,11 @@ const conversationsSlice = createSlice({
       const item = state.items.find((c) => c.mobile === mobile)
       if (item?.lastMessage) item.lastMessage.status = status
     },
+    /** Applied on the `conversation:deleted` socket event, possibly from another tab. */
+    removeConversation(state, action) {
+      const { mobile } = action.payload
+      state.items = state.items.filter((c) => c.mobile !== mobile)
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -88,9 +98,12 @@ const conversationsSlice = createSlice({
         const item = state.items.find((c) => c.mobile === action.payload)
         if (item) item.unreadCount = 0
       })
+      .addCase(deleteConversation.fulfilled, (state, action) => {
+        state.items = state.items.filter((c) => c.mobile !== action.payload)
+      })
   },
 })
 
-export const { setSearch, setFilter, upsertConversation, patchUnreadCount, patchLastMessageStatus } =
+export const { setSearch, setFilter, upsertConversation, patchUnreadCount, patchLastMessageStatus, removeConversation } =
   conversationsSlice.actions
 export default conversationsSlice.reducer
