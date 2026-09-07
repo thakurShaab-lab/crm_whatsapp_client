@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { setFilter, fetchConversations } from '../../store/conversationsSlice'
 import { ThemeToggle } from './ThemeToggle.jsx'
 
-export function SidebarHeader() {
+export function SidebarHeader({ onNewChat }) {
   const dispatch = useDispatch()
   const filter = useSelector((state) => state.conversations.filter)
   const [inputValue, setInputValue] = useState('')
@@ -37,6 +37,17 @@ export function SidebarHeader() {
             className="w-full bg-transparent text-sm text-wa-text-primary placeholder:text-wa-text-secondary focus:outline-none"
           />
         </div>
+        <button
+          type="button"
+          onClick={onNewChat}
+          aria-label="New chat"
+          title="New chat"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M4 20h16v2H4zM17.71 3.29a1 1 0 0 0-1.42 0l-1.5 1.5 3.42 3.42 1.5-1.5a1 1 0 0 0 0-1.42zM3 17.25V21h3.75L18.81 8.94l-3.75-3.75z" />
+          </svg>
+        </button>
         <ThemeToggle />
       </div>
 
