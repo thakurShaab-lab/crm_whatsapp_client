@@ -67,3 +67,27 @@ export function searchContacts(search) {
   if (search) params.set('search', search)
   return request(`/contacts?${params.toString()}`)
 }
+
+export function getTemplates() {
+  return request('/templates')
+}
+
+export function getTemplateDetail(id) {
+  return request(`/templates/${id}`)
+}
+
+/**
+ * "Send Approved Template" popup's send call. `manualValues` maps a variable row's
+ * own id to the text typed for it (only 'other'-prefixed variables ever need one —
+ * every other variable auto-resolves from CRM data server-side regardless of what's
+ * sent here). `file` optionally overrides the template's own configured media for
+ * this one send.
+ */
+export function sendTemplateMessage(mobile, { templateId, manualValues, file, ctrId }) {
+  const form = new FormData()
+  form.append('templateId', String(templateId))
+  if (manualValues) form.append('manualValues', JSON.stringify(manualValues))
+  if (file) form.append('file', file)
+  const query = ctrId ? `?ctrId=${encodeURIComponent(ctrId)}` : ''
+  return request(`/conversations/${mobile}/messages/template${query}`, { method: 'POST', body: form })
+}

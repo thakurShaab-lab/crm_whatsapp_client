@@ -22,6 +22,15 @@ export const sendMessage = createAsyncThunk('messages/send', async ({ mobile, te
   return { mobile, messages: result.messages }
 })
 
+/** "Send Approved Template" popup's send — see lib/api.js.sendTemplateMessage for what manualValues/file mean. */
+export const sendTemplateMessage = createAsyncThunk(
+  'messages/sendTemplate',
+  async ({ mobile, templateId, manualValues, file, ctrId }) => {
+    const result = await api.sendTemplateMessage(mobile, { templateId, manualValues, file, ctrId })
+    return { mobile, messages: [result.message] }
+  },
+)
+
 function threadFor(state, mobile) {
   if (!state.byMobile[mobile]) state.byMobile[mobile] = { items: [], nextCursor: null, status: 'idle', contact: null }
   return state.byMobile[mobile]
@@ -70,6 +79,12 @@ const messagesSlice = createSlice({
         thread.nextCursor = action.payload.nextCursor
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
+        const thread = threadFor(state, action.payload.mobile)
+        for (const message of action.payload.messages) {
+          if (!thread.items.some((m) => m.id === message.id)) thread.items.push(message)
+        }
+      })
+      .addCase(sendTemplateMessage.fulfilled, (state, action) => {
         const thread = threadFor(state, action.payload.mobile)
         for (const message of action.payload.messages) {
           if (!thread.items.some((m) => m.id === message.id)) thread.items.push(message)

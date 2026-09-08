@@ -1,10 +1,12 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from './EmptyState.jsx'
 import { ChatHeader } from './ChatHeader.jsx'
 import { MessageList } from './MessageList.jsx'
 import { MessageComposer } from './MessageComposer.jsx'
+import { WhatsAppWindowNotice } from './WhatsAppWindowNotice.jsx'
+import { SendTemplateModal } from './SendTemplateModal.jsx'
 import { useContact } from '../../hooks/useContact'
 import { useConversationSubscription } from '../../hooks/useSocketEvents'
 import { fetchThreadMessages, fetchMoreThreadMessages } from '../../store/messagesSlice'
@@ -20,6 +22,7 @@ export function ChatPanel({ mobile }) {
   const [searchParams] = useSearchParams()
   const { contact } = useContact(mobile)
   const thread = useSelector((state) => state.messages.byMobile[mobile]) || { items: [], status: 'idle', nextCursor: null }
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
 
   // The URL carries the same identifying query params the legacy `whatsapp_chat.php`
   // route did (see Sidebar.jsx) — forward them to the thread fetch so the server can
@@ -57,11 +60,21 @@ export function ChatPanel({ mobile }) {
         />
       )}
 
-      <MessageComposer
-        mobile={mobile}
-        disabled={Boolean(contact?.stopService)}
-        disabledReason="This contact replied STOP and can no longer be messaged."
-      />
+      {contact?.stopService ? (
+        <MessageComposer
+          mobile={mobile}
+          disabled
+          disabledReason="This contact replied STOP and can no longer be messaged."
+        />
+      ) : contact?.windowExpired ? (
+        <WhatsAppWindowNotice onSendTemplate={() => setShowTemplateModal(true)} />
+      ) : (
+        <MessageComposer mobile={mobile} />
+      )}
+
+      {showTemplateModal && (
+        <SendTemplateModal mobile={mobile} ctrId={chatContext.ctrId} onClose={() => setShowTemplateModal(false)} />
+      )}
     </div>
   )
 }
