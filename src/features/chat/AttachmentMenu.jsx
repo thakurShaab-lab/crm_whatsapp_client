@@ -6,7 +6,7 @@ const FILE_OPTIONS = [
   { key: 'audio', label: 'Audio', accept: 'audio/*', icon: '🎵' },
 ]
 
-export function AttachmentMenu({ onFilesSelected, onLocationSelected, onClose }) {
+export function AttachmentMenu({ onFilesSelected, onLocationSelected, onTemplateSelected, onClose }) {
   const inputRef = useRef(null)
   const [locationError, setLocationError] = useState(null)
   const [locating, setLocating] = useState(false)
@@ -54,6 +54,17 @@ export function AttachmentMenu({ onFilesSelected, onLocationSelected, onClose })
           {option.label}
         </button>
       ))}
+      <button
+        type="button"
+        onClick={() => {
+          onTemplateSelected()
+          onClose()
+        }}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-wa-text-primary hover:bg-wa-panel-hover"
+      >
+        <span className="text-lg">📋</span>
+        Template
+      </button>
       <button
         type="button"
         onClick={handleShareLocation}

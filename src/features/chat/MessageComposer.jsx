@@ -6,7 +6,7 @@ import { formatLocationText } from '../../utils/locationText'
 import { AttachmentMenu } from './AttachmentMenu.jsx'
 import { EmojiPickerPopover } from './EmojiPickerButton.jsx'
 
-export function MessageComposer({ mobile, disabled, disabledReason }) {
+export function MessageComposer({ mobile, disabled, disabledReason, onSendTemplate }) {
   const dispatch = useDispatch()
   const draft = useSelector((state) => state.ui.composerDrafts[mobile] || '')
   const attachmentMenuOpen = useSelector((state) => state.ui.attachmentMenuOpen)
@@ -176,6 +176,7 @@ export function MessageComposer({ mobile, disabled, disabledReason }) {
         <AttachmentMenu
           onFilesSelected={addFiles}
           onLocationSelected={addLocation}
+          onTemplateSelected={onSendTemplate}
           onClose={() => dispatch(closeMenus())}
         />
       )}

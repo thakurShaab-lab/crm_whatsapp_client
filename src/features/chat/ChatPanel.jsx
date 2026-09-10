@@ -92,7 +92,7 @@ export function ChatPanel({ mobile }) {
       ) : contact?.windowExpired ? (
         <WhatsAppWindowNotice onSendTemplate={() => setShowTemplateModal(true)} />
       ) : (
-        <MessageComposer mobile={mobile} />
+        <MessageComposer mobile={mobile} onSendTemplate={() => setShowTemplateModal(true)} />
       )}
 
       {showTemplateModal && (
