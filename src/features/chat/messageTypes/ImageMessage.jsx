@@ -28,6 +28,9 @@ export function ImageMessage({ message }) {
           />
         </button>
       )}
+      {/* `message.text` is this image's WhatsApp-style caption (see the server's
+          mappers.js toMessageDto) — null when none was sent, never a separate
+          chat message. */}
       {message.text && <p className="mt-1 whitespace-pre-wrap break-words text-[14.5px] text-wa-text-primary"><Linkified text={message.text} /></p>}
 
       {open && !failed && (
