@@ -45,7 +45,7 @@ export function ChatPanel({ mobile }) {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      <ChatHeader contact={contact} />
+      <ChatHeader contact={contact} cname={chatContext.cname} />
 
       {thread.status === 'loading' ? (
         <div className="flex flex-1 items-center justify-center bg-wa-chat-bg text-sm text-wa-text-secondary">
