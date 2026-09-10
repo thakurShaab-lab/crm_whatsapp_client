@@ -6,7 +6,51 @@ import { dayKey } from '../../utils/formatTime'
 
 const START_INDEX = 1_000_000
 
-export function MessageList({ messages, onLoadOlder, hasOlder, isLoadingOlder }) {
+/**
+ * The control shown above the oldest currently-loaded message. Deliberately a
+ * manual button, not an auto-load-on-scroll trigger (Virtuoso's `startReached` is
+ * intentionally not wired to `onLoadOlder` — the pagination itself always walks
+ * exactly one 3-calendar-day window per click, matching the "load more" semantics
+ * this button models, not an infinite auto-scroll).
+ */
+function LoadOlderControl({ hasMore, isLoadingMore, loadMoreError, hasAnyMessages, onLoadOlder }) {
+  if (isLoadingMore) {
+    return <div className="py-3 text-center text-xs text-wa-text-secondary">Loading older messages…</div>
+  }
+
+  if (loadMoreError) {
+    return (
+      <div className="flex flex-col items-center gap-1 py-3 text-center text-xs">
+        <span className="text-wa-danger">Couldn&apos;t load older messages: {loadMoreError}</span>
+        <button type="button" onClick={onLoadOlder} className="font-medium text-wa-green hover:underline">
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (hasMore) {
+    return (
+      <div className="flex justify-center py-2">
+        <button
+          type="button"
+          onClick={onLoadOlder}
+          className="rounded-full border border-wa-border px-4 py-1.5 text-xs text-wa-text-primary hover:bg-wa-panel-hover"
+        >
+          Load more chats
+        </button>
+      </div>
+    )
+  }
+
+  if (hasAnyMessages) {
+    return <div className="py-3 text-center text-xs text-wa-text-secondary">No older messages</div>
+  }
+
+  return null
+}
+
+export function MessageList({ messages, onLoadOlder, hasMore, isLoadingMore, loadMoreError }) {
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX)
   const prevFirstIdRef = useRef(null)
@@ -14,7 +58,11 @@ export function MessageList({ messages, onLoadOlder, hasOlder, isLoadingOlder })
   const [newMessagePill, setNewMessagePill] = useState(false)
   const prevLastIdRef = useRef(null)
 
-  // Keeps the scroll position anchored when an older page is prepended to the front.
+  // Keeps the scroll position anchored when an older page is prepended to the front —
+  // Virtuoso's own recommended pattern for this (rather than manually measuring
+  // scrollHeight/scrollTop): shifting `firstItemIndex` down by exactly how many items
+  // were added keeps every already-visible item at the same virtual index, so nothing
+  // jumps, regardless of how tall the newly-prepended content actually rendered at.
   useEffect(() => {
     if (messages.length === 0) return
     const newFirstId = messages[0].id
@@ -54,13 +102,17 @@ export function MessageList({ messages, onLoadOlder, hasOlder, isLoadingOlder })
           setAtBottom(bottom)
           if (bottom) setNewMessagePill(false)
         }}
-        startReached={() => hasOlder && !isLoadingOlder && onLoadOlder?.()}
         increaseViewportBy={{ top: 400, bottom: 200 }}
         components={{
-          Header: () =>
-            isLoadingOlder ? (
-              <div className="py-3 text-center text-xs text-wa-text-secondary">Loading older messages…</div>
-            ) : null,
+          Header: () => (
+            <LoadOlderControl
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
+              loadMoreError={loadMoreError}
+              hasAnyMessages={messages.length > 0}
+              onLoadOlder={onLoadOlder}
+            />
+          ),
         }}
         itemContent={(index, message) => {
           const arrayIndex = index - firstItemIndex

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from './EmptyState.jsx'
@@ -21,8 +21,16 @@ export function ChatPanel({ mobile }) {
   const dispatch = useDispatch()
   const [searchParams] = useSearchParams()
   const { contact } = useContact(mobile)
-  const thread = useSelector((state) => state.messages.byMobile[mobile]) || { items: [], status: 'idle', nextCursor: null }
+  const thread = useSelector((state) => state.messages.byMobile[mobile]) || {
+    items: [],
+    status: 'idle',
+    nextCursor: null,
+    hasMore: false,
+    loadMoreStatus: 'idle',
+    loadMoreError: null,
+  }
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const loadingMoreRef = useRef(false)
 
   // The URL carries the same identifying query params the legacy `whatsapp_chat.php`
   // route did (see Sidebar.jsx) — forward them to the thread fetch so the server can
@@ -39,6 +47,20 @@ export function ChatPanel({ mobile }) {
     }
   }, [mobile, chatContext, dispatch])
 
+  // Synchronous re-entrancy guard: the thunk's `condition` option can't reliably
+  // block a true zero-delay double-dispatch (both calls can pass the `getState()`
+  // check before the first dispatch's `pending` action has reduced), so this ref
+  // blocks the second click at the call site instead, before any dispatch happens.
+  async function handleLoadOlder() {
+    if (loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    try {
+      await dispatch(fetchMoreThreadMessages({ mobile, ...chatContext }))
+    } finally {
+      loadingMoreRef.current = false
+    }
+  }
+
   if (mobile == null) {
     return <EmptyState />
   }
@@ -54,9 +76,10 @@ export function ChatPanel({ mobile }) {
       ) : (
         <MessageList
           messages={thread.items}
-          onLoadOlder={() => dispatch(fetchMoreThreadMessages({ mobile, ...chatContext }))}
-          hasOlder={Boolean(thread.nextCursor)}
-          isLoadingOlder={thread.status === 'loadingMore'}
+          onLoadOlder={handleLoadOlder}
+          hasMore={thread.hasMore}
+          isLoadingMore={thread.loadMoreStatus === 'loading'}
+          loadMoreError={thread.loadMoreStatus === 'failed' ? thread.loadMoreError : null}
         />
       )}
 

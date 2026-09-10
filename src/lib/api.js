@@ -36,10 +36,14 @@ const CHAT_CONTEXT_KEYS = [
   'ctrId', 'for', 'refid', 'def', 'view', 'cname', 'viewfrom', 'is_chat', 'is_on_right', 'useradminid', 'wabano', 'wanum',
 ]
 
-export function getThreadMessages(mobile, { cursor, limit, ...context } = {}) {
+/**
+ * `cursor` (opaque, omitted for the first page) pages backward in 3-calendar-day
+ * windows rather than by message count — see the server's utils/dateWindow.js. Pass
+ * back the previous response's own `nextCursor` to load the next-older window.
+ */
+export function getThreadMessages(mobile, { cursor, ...context } = {}) {
   const params = new URLSearchParams()
   if (cursor) params.set('cursor', cursor)
-  if (limit) params.set('limit', String(limit))
   for (const key of CHAT_CONTEXT_KEYS) {
     if (context[key] != null && context[key] !== '') params.set(key, context[key])
   }
