@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useDispatch } from 'react-redux'
 import { useSocket } from '../lib/socket.jsx'
-import { upsertConversation, patchUnreadCount, patchLastMessageStatus } from '../store/conversationsSlice'
+import { upsertConversation, patchUnreadCount, patchLastMessageStatus, removeConversation } from '../store/conversationsSlice'
 import { addMessage, patchMessageStatus } from '../store/messagesSlice'
 
 /** Wires the three server-pushed events into the Redux store — no polling, no refetching. */
@@ -24,14 +24,20 @@ export function useSocketEvents() {
       dispatch(patchUnreadCount({ mobile }))
     }
 
+    function onConversationDeleted({ mobile }) {
+      dispatch(removeConversation(mobile))
+    }
+
     socket.on('conversation:new_message', onNewMessage)
     socket.on('message:status_update', onStatusUpdate)
     socket.on('conversation:read', onConversationRead)
+    socket.on('conversation:deleted', onConversationDeleted)
 
     return () => {
       socket.off('conversation:new_message', onNewMessage)
       socket.off('message:status_update', onStatusUpdate)
       socket.off('conversation:read', onConversationRead)
+      socket.off('conversation:deleted', onConversationDeleted)
     }
   }, [socket, dispatch])
 }
