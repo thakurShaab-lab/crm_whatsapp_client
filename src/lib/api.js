@@ -77,11 +77,6 @@ export function searchContacts(search) {
   return request(`/contacts?${params.toString()}`)
 }
 
-/** The logged-in agent's own profile, for the chat header's Profile popup. */
-export function getMyProfile() {
-  return request('/me')
-}
-
 export function getTemplates() {
   return request('/templates')
 }

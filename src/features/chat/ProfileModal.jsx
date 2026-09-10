@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { getMyProfile } from '../../lib/api'
+import { useEffect } from 'react'
 import { initialsFor, avatarColorFor } from '../../utils/avatar'
 
 function ProfileField({ label, value }) {
@@ -13,26 +12,14 @@ function ProfileField({ label, value }) {
 }
 
 /**
- * The logged-in agent's own profile — reuses the same centered-card modal shape as
- * SendTemplateModal.jsx (backdrop + rounded-lg bg-wa-panel card) rather than a new
- * layout, and the same avatar/initials treatment used for contacts throughout the
- * app (tbl_employees has no photo column, same as contacts have none). Data comes
- * from GET /api/me, which is just the current request's already-loaded
- * `tbl_employees` row (agentContext) — the same "single configured employee" source
- * every other endpoint in this app uses, not a new one.
+ * This chat's contact — the exact same name/mobile/avatar the chat header and its
+ * sidebar row already show (same `displayName`/`contact` ChatHeader.jsx itself
+ * uses, passed straight through as props here — no separate fetch, no separate
+ * data source, so it can never disagree with what's already on screen). Reuses the
+ * same centered-card modal shape as SendTemplateModal.jsx rather than a new layout,
+ * and the same avatar/initials treatment used for contacts throughout the app.
  */
-export function ProfileModal({ onClose }) {
-  const [profile, setProfile] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    getMyProfile()
-      .then(setProfile)
-      .catch((err) => setError(err.message))
-      .finally(() => setIsLoading(false))
-  }, [])
-
+export function ProfileModal({ name, mobile, stopService, onClose }) {
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === 'Escape') onClose()
@@ -54,29 +41,22 @@ export function ProfileModal({ onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          {isLoading && <div className="py-3 text-center text-sm text-wa-text-secondary">Loading…</div>}
-
-          {error && !isLoading && <div className="py-3 text-center text-sm text-wa-danger">Couldn&apos;t load profile: {error}</div>}
-
-          {profile && !isLoading && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col items-center gap-2">
-                <div
-                  className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full text-2xl font-semibold text-white"
-                  style={{ backgroundColor: avatarColorFor(profile.mobile || profile.email || profile.name) }}
-                >
-                  {initialsFor(profile.name)}
-                </div>
-                <div className="max-w-full break-words text-center text-[15px] text-wa-text-primary">{profile.name}</div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full text-2xl font-semibold text-white"
+                style={{ backgroundColor: avatarColorFor(mobile) }}
+              >
+                {initialsFor(name)}
               </div>
-
-              <div className="flex flex-col gap-3 border-t border-wa-border pt-3">
-                <ProfileField label="Mobile" value={profile.mobile ? `+${profile.isdCode || 91} ${profile.mobile}` : null} />
-                <ProfileField label="Email" value={profile.email} />
-                <ProfileField label="WhatsApp Business Number" value={profile.whatsappWabano} />
-              </div>
+              <div className="max-w-full break-words text-center text-[15px] text-wa-text-primary">{name}</div>
             </div>
-          )}
+
+            <div className="flex flex-col gap-3 border-t border-wa-border pt-3">
+              <ProfileField label="Mobile" value={stopService ? null : mobile} />
+              {stopService && <ProfileField label="Status" value="Opted out of WhatsApp messages" />}
+            </div>
+          </div>
         </div>
       </div>
     </div>

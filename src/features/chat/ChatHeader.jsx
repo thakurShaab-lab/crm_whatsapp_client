@@ -55,7 +55,9 @@ export function ChatHeader({ contact, cname }) {
         </svg>
       </button>
 
-      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+      {showProfile && (
+        <ProfileModal name={displayName} mobile={contact?.mobile} stopService={contact?.stopService} onClose={() => setShowProfile(false)} />
+      )}
     </div>
   )
 }
