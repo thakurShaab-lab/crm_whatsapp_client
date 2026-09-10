@@ -11,6 +11,8 @@ export function ChatHeader({ contact, cname }) {
   // that can land on a different fallback tier and disagree with what was clicked.
   const displayName = cname || contact?.name || contact?.mobile
 
+  console.log('ChatHeader', { contact, cname, displayName })
+
   return (
     <div className="flex h-16 flex-shrink-0 items-center gap-3 border-b border-wa-border bg-wa-panel px-4">
       <button
