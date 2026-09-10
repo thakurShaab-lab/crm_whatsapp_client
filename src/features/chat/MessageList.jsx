@@ -42,12 +42,6 @@ function LoadOlderControl({ hasMore, isLoadingMore, loadMoreError, hasAnyMessage
       </div>
     )
   }
-
-  if (hasAnyMessages) {
-    return <div className="py-3 text-center text-xs text-wa-text-secondary">No older messages</div>
-  }
-
-  return null
 }
 
 export function MessageList({ messages, onLoadOlder, hasMore, isLoadingMore, loadMoreError }) {
