@@ -42,7 +42,7 @@ export function AttachmentMenu({ onFilesSelected, onLocationSelected, onTemplate
   }
 
   return (
-    <div className="absolute bottom-14 left-2 z-10 w-56 overflow-hidden rounded-lg bg-wa-panel shadow-xl">
+    <div className="absolute bottom-14 right-2 z-10 w-56 overflow-hidden rounded-lg bg-wa-panel shadow-xl">
       {FILE_OPTIONS.map((option) => (
         <button
           key={option.key}

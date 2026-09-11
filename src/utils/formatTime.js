@@ -25,3 +25,11 @@ export function formatSidebarTimestamp(value) {
 export function dayKey(value) {
   return new Date(value).toDateString()
 }
+
+/** Elapsed-duration formatting (m:ss) — distinct from the absolute-timestamp formatters above, used by the voice-recorder timer and preview player. */
+export function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}

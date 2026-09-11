@@ -36,7 +36,7 @@ describe('MessageComposer send behavior', () => {
     const { resolve } = deferredSend()
     renderComposer()
 
-    const textarea = screen.getByPlaceholderText('Type a message')
+    const textarea = screen.getByPlaceholderText('Message')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
     expect(textarea.value).toBe('Hello')
 
@@ -54,7 +54,7 @@ describe('MessageComposer send behavior', () => {
     const { resolve } = deferredSend()
     renderComposer()
 
-    const textarea = screen.getByPlaceholderText('Type a message')
+    const textarea = screen.getByPlaceholderText('Message')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
 
     // Two Enter keydowns fired back-to-back, exactly like OS key-repeat or an
@@ -73,7 +73,7 @@ describe('MessageComposer send behavior', () => {
     const { resolve } = deferredSend()
     renderComposer()
 
-    const textarea = screen.getByPlaceholderText('Type a message')
+    const textarea = screen.getByPlaceholderText('Message')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
 
     const sendButton = screen.getByLabelText('Send message')
@@ -88,7 +88,7 @@ describe('MessageComposer send behavior', () => {
 
   test('Shift+Enter does not send (only inserts a newline via the default textarea behavior)', () => {
     renderComposer()
-    const textarea = screen.getByPlaceholderText('Type a message')
+    const textarea = screen.getByPlaceholderText('Message')
     fireEvent.change(textarea, { target: { value: 'Hello' } })
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
     expect(api.sendMessage).not.toHaveBeenCalled()
@@ -96,7 +96,7 @@ describe('MessageComposer send behavior', () => {
 
   test('pressing Enter on an empty composer does nothing', () => {
     renderComposer()
-    const textarea = screen.getByPlaceholderText('Type a message')
+    const textarea = screen.getByPlaceholderText('Message')
     fireEvent.keyDown(textarea, { key: 'Enter' })
     expect(api.sendMessage).not.toHaveBeenCalled()
   })
@@ -104,7 +104,7 @@ describe('MessageComposer send behavior', () => {
   test('a second message typed while the first is still in flight can be sent once the first clears', async () => {
     const { resolve } = deferredSend()
     renderComposer()
-    const textarea = screen.getByPlaceholderText('Type a message')
+    const textarea = screen.getByPlaceholderText('Message')
 
     fireEvent.change(textarea, { target: { value: 'First' } })
     fireEvent.keyDown(textarea, { key: 'Enter' })

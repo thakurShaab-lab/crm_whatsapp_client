@@ -1,11 +1,25 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { setDraft, clearDraft, toggleAttachmentMenu, toggleEmojiPicker, closeMenus } from '../../store/uiSlice'
 import { sendMessage } from '../../store/messagesSlice'
 import { formatLocationText } from '../../utils/locationText'
 import { buildOptimisticMessages, makeTempMessageId } from '../../utils/optimisticMessage'
+import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import { AttachmentMenu } from './AttachmentMenu.jsx'
 import { EmojiPickerPopover } from './EmojiPickerButton.jsx'
+import { VoiceRecorder } from './VoiceRecorder.jsx'
+
+// Matches the MediaRecorder mimeType this browser actually recorded with (see
+// utils/audioRecording.js's getSupportedAudioMimeType) to a sensible filename
+// extension, purely for a nicer stored/displayed filename — the real content
+// type on the message itself always comes from the mimeType, not this guess.
+function extensionForMimeType(mimeType) {
+  if (!mimeType) return 'webm'
+  if (mimeType.includes('mp4')) return 'm4a'
+  if (mimeType.includes('ogg')) return 'ogg'
+  if (mimeType.includes('mpeg')) return 'mp3'
+  return 'webm'
+}
 
 export function MessageComposer({ mobile, disabled, disabledReason, onSendTemplate }) {
   const dispatch = useDispatch()
@@ -17,6 +31,9 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   const [stagedLocations, setStagedLocations] = useState([])
   const [sending, setSending] = useState(false)
   const textareaRef = useRef(null)
+  const cameraInputRef = useRef(null)
+  const attachmentRef = useRef(null) // wraps the attach button + its popup, for outside-click-to-close
+  const recorder = useAudioRecorder()
   // A synchronous re-entrancy guard, not just the `sending` state: two Enter
   // keydowns (OS key-repeat, or a fast double Enter/click) each invoke this
   // handler as a separate top-level event before React ever re-renders, so
@@ -25,7 +42,28 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   // the second call's guard below always sees the true, current value.
   const sendingRef = useRef(false)
 
-  const canSend = !sending && (draft.trim().length > 0 || stagedFiles.length > 0 || stagedLocations.length > 0)
+  const hasContent = draft.trim().length > 0 || stagedFiles.length > 0 || stagedLocations.length > 0
+  const canSend = !sending && hasContent
+  const isRecorderActive = recorder.state !== 'idle'
+
+  // Switching conversations mid-recording would otherwise silently keep
+  // recording into whatever chat is now open — cancel it instead, exactly like
+  // any other per-conversation composer state.
+  useEffect(() => {
+    return () => recorder.discard()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only mobile identifies "switched conversation"; recorder itself is stable
+  }, [mobile])
+
+  // Clicking anywhere outside the open attachment menu (including its own
+  // trigger button, which stays inside this same ref) closes it.
+  useEffect(() => {
+    if (!attachmentMenuOpen) return undefined
+    function handleOutsideClick(event) {
+      if (!attachmentRef.current?.contains(event.target)) dispatch(closeMenus())
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [attachmentMenuOpen, dispatch])
 
   async function handleSend() {
     if (sendingRef.current) return
@@ -75,6 +113,28 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
       // The failed message itself (with a retry affordance) already shows this
       // in the thread — see messagesSlice.js's sendMessage.rejected — so nothing
       // else is needed here beyond letting the composer clear its own busy state.
+    } finally {
+      setSending(false)
+      sendingRef.current = false
+    }
+  }
+
+  /** A finished voice recording is sent through the exact same pipeline as any other attached file — no parallel send path. */
+  async function handleSendVoiceMessage({ blob, mimeType }) {
+    if (sendingRef.current || !blob) return
+    const file = new File([blob], `voice-message.${extensionForMimeType(mimeType)}`, { type: mimeType || 'audio/webm' })
+
+    // The recording UI returns to normal immediately — the message now lives in
+    // the thread as its own bubble, exactly like a just-sent text/image message.
+    recorder.discard()
+
+    sendingRef.current = true
+    setSending(true)
+    try {
+      const optimisticMessages = buildOptimisticMessages({ mobile, text: '', stagedFiles: [{ file, previewUrl: null }] })
+      await dispatch(sendMessage({ mobile, text: '', files: [file], optimisticMessages })).unwrap()
+    } catch {
+      // Same as above — a failed send shows as a "failed" bubble with its own retry button.
     } finally {
       setSending(false)
       sendingRef.current = false
@@ -167,58 +227,110 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
       )}
 
       <div className="flex items-end gap-2">
-        <button
-          type="button"
-          onClick={() => dispatch(toggleAttachmentMenu())}
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
-          aria-label="Attach file"
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6H10v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6z" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => dispatch(toggleEmojiPicker())}
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
-          aria-label="Choose emoji"
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8m3.5-9a1.5 1.5 0 1 0-1.5-1.5A1.5 1.5 0 0 0 15.5 11m-7 0A1.5 1.5 0 1 0 7 9.5 1.5 1.5 0 0 0 8.5 11m3.5 6.5a5.5 5.5 0 0 0 5-3.2H7a5.5 5.5 0 0 0 5 3.2" />
-          </svg>
-        </button>
+        {isRecorderActive ? (
+          <VoiceRecorder recorder={recorder} onSend={handleSendVoiceMessage} onDiscard={recorder.discard} sending={sending} />
+        ) : (
+          <div className="flex flex-1 items-end gap-1 rounded-[24px] bg-wa-panel-textarea px-2 py-1">
+            <button
+              type="button"
+              onClick={() => dispatch(toggleEmojiPicker())}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
+              aria-label="Choose emoji"
+              title="Choose emoji"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8m3.5-9a1.5 1.5 0 1 0-1.5-1.5A1.5 1.5 0 0 0 15.5 11m-7 0A1.5 1.5 0 1 0 7 9.5 1.5 1.5 0 0 0 8.5 11m3.5 6.5a5.5 5.5 0 0 0 5-3.2H7a5.5 5.5 0 0 0 5 3.2" />
+              </svg>
+            </button>
 
-        <textarea
-          ref={textareaRef}
-          value={draft}
-          onChange={(event) => dispatch(setDraft({ mobile, text: event.target.value }))}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message"
-          rows={1}
-          className="max-h-32 flex-1 resize-none rounded-[100px] bg-wa-panel-textarea px-3 py-2 text-sm text-wa-text-primary placeholder:text-wa-text-secondary focus:outline-none"
-        />
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(event) => dispatch(setDraft({ mobile, text: event.target.value }))}
+              onKeyDown={handleKeyDown}
+              placeholder="Message"
+              rows={1}
+              className="max-h-32 flex-1 resize-none bg-transparent py-1.5 text-sm text-wa-text-primary placeholder:text-wa-text-secondary focus:outline-none"
+            />
 
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!canSend}
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary enabled:hover:bg-wa-panel-hover disabled:opacity-40"
-          aria-label="Send message"
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
-          </svg>
-        </button>
+            <div ref={attachmentRef} className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => dispatch(toggleAttachmentMenu())}
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
+                aria-label="Attach file"
+                title="Attach"
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                  <path d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6H10v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6z" />
+                </svg>
+              </button>
+
+              {attachmentMenuOpen && (
+                <AttachmentMenu
+                  onFilesSelected={addFiles}
+                  onLocationSelected={addLocation}
+                  onTemplateSelected={onSendTemplate}
+                  onClose={() => dispatch(closeMenus())}
+                />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
+              aria-label="Camera"
+              title="Camera"
+            >
+              <svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor">
+                <path d="M9.4 3 7.8 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.8L14.6 3zM12 18a5 5 0 1 1 0-10 5 5 0 0 1 0 10m0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6" />
+              </svg>
+            </button>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*,video/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => {
+                const files = Array.from(event.target.files || [])
+                if (files.length > 0) addFiles(files)
+                event.target.value = ''
+              }}
+            />
+          </div>
+        )}
+
+        {!isRecorderActive &&
+          (hasContent ? (
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!canSend}
+              aria-label="Send message"
+              title="Send"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-wa-green text-white enabled:hover:bg-wa-green-dark disabled:opacity-40"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={recorder.start}
+              aria-label="Record a voice message"
+              title="Record a voice message"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-wa-green text-white hover:bg-wa-green-dark"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3m5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z" />
+              </svg>
+            </button>
+          ))}
       </div>
 
-      {attachmentMenuOpen && (
-        <AttachmentMenu
-          onFilesSelected={addFiles}
-          onLocationSelected={addLocation}
-          onTemplateSelected={onSendTemplate}
-          onClose={() => dispatch(closeMenus())}
-        />
-      )}
       {emojiPickerOpen && (
         <EmojiPickerPopover
           onSelect={(emoji) => dispatch(setDraft({ mobile, text: draft + emoji }))}
