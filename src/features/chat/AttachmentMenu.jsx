@@ -56,7 +56,7 @@ export function AttachmentMenu({ onFilesSelected, onLocationSelected, onTemplate
       ))}
       <button
         type="button"
-        onClick={() => {
+        onClick={() => { 
           onTemplateSelected()
           onClose()
         }}
