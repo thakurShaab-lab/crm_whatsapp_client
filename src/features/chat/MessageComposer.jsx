@@ -17,31 +17,48 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(null)
   const textareaRef = useRef(null)
+  // A synchronous re-entrancy guard, not just the `sending` state: two Enter
+  // keydowns (OS key-repeat, or a fast double Enter/click) each invoke this
+  // handler as a separate top-level event before React ever re-renders, so
+  // `sending`/`canSend` can still read stale (false) in the second call. A ref
+  // flips the instant the first call starts, before anything async happens, so
+  // the second call's guard below always sees the true, current value.
+  const sendingRef = useRef(false)
 
   const canSend = !sending && (draft.trim().length > 0 || stagedFiles.length > 0 || stagedLocations.length > 0)
 
   async function handleSend() {
-    if (!canSend) return
-    setSendError(null)
+    if (sendingRef.current) return
+    const text = draft.trim()
+    const files = stagedFiles.map((f) => f.file)
+    const locations = stagedLocations
+    if (!text && files.length === 0 && locations.length === 0) return
+
+    sendingRef.current = true
     setSending(true)
+    setSendError(null)
+    // Cleared immediately (before any request even starts), not after — so the
+    // input box empties the instant submission begins, and a repeated Enter/
+    // click has nothing left to resubmit even in the brief window before
+    // `sendingRef` alone would have blocked it.
+    dispatch(clearDraft(mobile))
+    setStagedFiles([])
+    setStagedLocations([])
+
     try {
-      const text = draft.trim()
-      const files = stagedFiles.map((f) => f.file)
       if (text || files.length > 0) {
         await dispatch(sendMessage({ mobile, text, files })).unwrap()
       }
       // Each shared location becomes its own message (the composer's single text field
       // can only carry one body per call).
-      for (const location of stagedLocations) {
+      for (const location of locations) {
         await dispatch(sendMessage({ mobile, text: formatLocationText(location.latitude, location.longitude) })).unwrap()
       }
-      dispatch(clearDraft(mobile))
-      setStagedFiles([])
-      setStagedLocations([])
     } catch (error) {
       setSendError(error.message)
     } finally {
       setSending(false)
+      sendingRef.current = false
     }
   }
 
