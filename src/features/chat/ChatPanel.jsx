@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from './EmptyState.jsx'
@@ -9,7 +9,7 @@ import { WhatsAppWindowNotice } from './WhatsAppWindowNotice.jsx'
 import { SendTemplateModal } from './SendTemplateModal.jsx'
 import { useContact } from '../../hooks/useContact'
 import { useConversationSubscription } from '../../hooks/useSocketEvents'
-import { fetchThreadMessages, fetchMoreThreadMessages } from '../../store/messagesSlice'
+import { fetchThreadMessages, fetchMoreThreadMessages, retryMessage } from '../../store/messagesSlice'
 import { markConversationRead } from '../../store/conversationsSlice'
 
 const CHAT_CONTEXT_KEYS = [
@@ -61,6 +61,24 @@ export function ChatPanel({ mobile }) {
     }
   }
 
+  // Stable across renders — MessageBubble is memoized, so a fresh function
+  // identity here would force every bubble in the list to re-render, not just
+  // the one being retried.
+  const handleRetryMessage = useCallback(
+    (message) => {
+      dispatch(
+        retryMessage({
+          mobile,
+          id: message.id,
+          text: message.text || '',
+          mediaUrl: message.media?.url || null,
+          mediaFilename: message.media?.filename || null,
+        }),
+      )
+    },
+    [dispatch, mobile],
+  )
+
   if (mobile == null) {
     return <EmptyState />
   }
@@ -80,6 +98,7 @@ export function ChatPanel({ mobile }) {
           hasMore={thread.hasMore}
           isLoadingMore={thread.loadMoreStatus === 'loading'}
           loadMoreError={thread.loadMoreStatus === 'failed' ? thread.loadMoreError : null}
+          onRetryMessage={handleRetryMessage}
         />
       )}
 

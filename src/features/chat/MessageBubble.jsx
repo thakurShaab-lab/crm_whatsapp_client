@@ -18,7 +18,7 @@ const RENDERERS = {
   location: LocationMessage,
 }
 
-function MessageBubbleImpl({ message }) {
+function MessageBubbleImpl({ message, onRetry }) {
   const isOutbound = message.direction === 'outbound'
   // The real schema has no dedicated location type — a shared location travels as a
   // specially-formatted text message and is recognized back here for rendering.
@@ -39,8 +39,13 @@ function MessageBubbleImpl({ message }) {
           {isOutbound && <TickIcon status={message.status} />}
         </div>
         {message.status === 'failed' && (
-          <div className="mt-1 text-[11px] text-wa-danger">
-            {message.failedReason || 'Failed to send'}
+          <div className="mt-1 flex items-center gap-2 text-[11px] text-wa-danger">
+            <span>{message.failedReason || 'Failed to send'}</span>
+            {onRetry && (
+              <button type="button" onClick={() => onRetry(message)} className="font-medium underline underline-offset-2">
+                Tap to retry
+              </button>
+            )}
           </div>
         )}
       </div>

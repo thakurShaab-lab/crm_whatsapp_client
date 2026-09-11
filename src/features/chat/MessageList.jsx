@@ -50,7 +50,7 @@ function LoadOlderControl({ hasMore, isLoadingMore, loadMoreError, hasAnyMessage
   // return null
 }
 
-export function MessageList({ messages, onLoadOlder, hasMore, isLoadingMore, loadMoreError }) {
+export function MessageList({ messages, onLoadOlder, hasMore, isLoadingMore, loadMoreError, onRetryMessage }) {
   const virtuosoRef = useRef(null)
   const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX)
   const prevFirstIdRef = useRef(null)
@@ -122,7 +122,7 @@ export function MessageList({ messages, onLoadOlder, hasMore, isLoadingMore, loa
           return (
             <div>
               {showDateSeparator && <DateSeparator date={message.createdAt} />}
-              <MessageBubble message={message} />
+              <MessageBubble message={message} onRetry={onRetryMessage} />
             </div>
           )
         }}

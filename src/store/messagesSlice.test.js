@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
-import messagesReducer, { fetchThreadMessages, fetchMoreThreadMessages, addMessage } from './messagesSlice'
+import messagesReducer, { fetchThreadMessages, fetchMoreThreadMessages, addMessage, sendMessage, retryMessage } from './messagesSlice'
 import * as api from '../lib/api'
 
 vi.mock('../lib/api')
@@ -285,5 +285,113 @@ describe('a new message arriving while older history loads', () => {
 
     const thread = store.getState().messages.byMobile[MOBILE]
     expect(thread.items.map((m) => m.id)).toEqual([2, 3, 6])
+  })
+})
+
+function optimistic(id, text) {
+  return { id, mobile: MOBILE, direction: 'outbound', type: 'text', text, media: null, status: 'sending', failedReason: null, vendorMessageId: null, createdAt: '2026-01-10T10:00:00.000Z' }
+}
+
+describe('sendMessage (optimistic send)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  test('the optimistic message appears in the thread immediately (pending) — before the API call resolves', async () => {
+    let resolveSend
+    api.sendMessage.mockImplementationOnce(() => new Promise((resolve) => { resolveSend = resolve }))
+    const store = buildStore()
+
+    const sendPromise = store.dispatch(
+      sendMessage({ mobile: MOBILE, text: 'Hi', files: [], optimisticMessages: [optimistic('temp-1', 'Hi')] }),
+    )
+
+    // Never hidden while sending — visible the instant Send is pressed, not after the request resolves.
+    const thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items).toHaveLength(1)
+    expect(thread.items[0]).toMatchObject({ id: 'temp-1', status: 'sending', text: 'Hi' })
+
+    resolveSend({ messages: [{ id: 42, mobile: MOBILE, direction: 'outbound', type: 'text', text: 'Hi', media: null, status: 'sent', createdAt: '2026-01-10T10:00:01.000Z' }] })
+    await sendPromise
+  })
+
+  test('on success, the optimistic message is replaced by the real server message (real id, real status)', async () => {
+    api.sendMessage.mockResolvedValueOnce({
+      messages: [{ id: 42, mobile: MOBILE, direction: 'outbound', type: 'text', text: 'Hi', media: null, status: 'sent', createdAt: '2026-01-10T10:00:01.000Z' }],
+    })
+    const store = buildStore()
+    await store.dispatch(sendMessage({ mobile: MOBILE, text: 'Hi', files: [], optimisticMessages: [optimistic('temp-1', 'Hi')] }))
+
+    const thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items).toHaveLength(1)
+    expect(thread.items[0]).toMatchObject({ id: 42, status: 'sent' })
+  })
+
+  test('on failure, the optimistic message stays in the thread as "failed" with the error — it is never removed', async () => {
+    api.sendMessage.mockRejectedValueOnce(new Error('network down'))
+    const store = buildStore()
+    await store.dispatch(sendMessage({ mobile: MOBILE, text: 'Hi', files: [], optimisticMessages: [optimistic('temp-1', 'Hi')] }))
+
+    const thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items).toHaveLength(1)
+    expect(thread.items[0]).toMatchObject({ id: 'temp-1', status: 'failed', failedReason: 'network down' })
+  })
+
+  test('each message has independent status: one send failing does not affect a different, concurrently in-flight send', async () => {
+    let rejectFirst
+    api.sendMessage.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject }))
+    const store = buildStore()
+    const first = store.dispatch(
+      sendMessage({ mobile: MOBILE, text: 'First', files: [], optimisticMessages: [optimistic('temp-1', 'First')] }),
+    )
+
+    api.sendMessage.mockResolvedValueOnce({
+      messages: [{ id: 99, mobile: MOBILE, direction: 'outbound', type: 'text', text: 'Second', media: null, status: 'sent', createdAt: '2026-01-10T10:00:02.000Z' }],
+    })
+    await store.dispatch(
+      sendMessage({ mobile: MOBILE, text: 'Second', files: [], optimisticMessages: [optimistic('temp-2', 'Second')] }),
+    )
+
+    let thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items.find((m) => m.id === 'temp-1').status).toBe('sending')
+    expect(thread.items.find((m) => m.id === 99).status).toBe('sent')
+
+    rejectFirst(new Error('boom'))
+    await first
+
+    thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items.find((m) => m.id === 'temp-1').status).toBe('failed')
+    expect(thread.items.find((m) => m.id === 99).status).toBe('sent') // untouched by the other message's failure
+  })
+})
+
+describe('retryMessage', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  test('re-sends a failed message and replaces it with the real server message on success', async () => {
+    const store = buildStore()
+    api.sendMessage.mockRejectedValueOnce(new Error('network down'))
+    await store.dispatch(sendMessage({ mobile: MOBILE, text: 'Retry me', files: [], optimisticMessages: [optimistic('temp-9', 'Retry me')] }))
+    expect(store.getState().messages.byMobile[MOBILE].items[0].status).toBe('failed')
+
+    api.sendMessage.mockResolvedValueOnce({
+      messages: [{ id: 55, mobile: MOBILE, direction: 'outbound', type: 'text', text: 'Retry me', media: null, status: 'sent', createdAt: '2026-01-10T10:00:05.000Z' }],
+    })
+    await store.dispatch(retryMessage({ mobile: MOBILE, id: 'temp-9', text: 'Retry me', mediaUrl: null, mediaFilename: null }))
+
+    const thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items).toHaveLength(1)
+    expect(thread.items[0]).toMatchObject({ id: 55, status: 'sent' })
+  })
+
+  test('a failed retry leaves the same message visible with status "failed" again, not removed', async () => {
+    const store = buildStore()
+    api.sendMessage.mockRejectedValueOnce(new Error('first failure'))
+    await store.dispatch(sendMessage({ mobile: MOBILE, text: 'Retry me', files: [], optimisticMessages: [optimistic('temp-9', 'Retry me')] }))
+
+    api.sendMessage.mockRejectedValueOnce(new Error('still down'))
+    await store.dispatch(retryMessage({ mobile: MOBILE, id: 'temp-9', text: 'Retry me', mediaUrl: null, mediaFilename: null }))
+
+    const thread = store.getState().messages.byMobile[MOBILE]
+    expect(thread.items).toHaveLength(1)
+    expect(thread.items[0]).toMatchObject({ id: 'temp-9', status: 'failed', failedReason: 'still down' })
   })
 })

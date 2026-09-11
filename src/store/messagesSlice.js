@@ -35,9 +35,35 @@ export const fetchMoreThreadMessages = createAsyncThunk(
   },
 )
 
+/**
+ * `optimisticMessages` (built by MessageComposer.jsx, mirroring the server's own
+ * utils/sendPlan.js one-media-message-with-a-caption rule) are shown in the
+ * thread immediately via the `pending` case below — real WhatsApp never hides a
+ * message while it's sending, only its tick. `fulfilled` swaps them for the real,
+ * server-persisted rows in place; `rejected` leaves them visible with
+ * `status: 'failed'` instead of removing them, so the message and a retry
+ * affordance stay in the thread exactly where the user put them.
+ */
 export const sendMessage = createAsyncThunk('messages/send', async ({ mobile, text, files }) => {
   const result = await api.sendMessage(mobile, { text, files })
   return { mobile, messages: result.messages }
+})
+
+/**
+ * Re-sends one previously-failed optimistic message by its own id. `mediaUrl` (if
+ * any) is that message's own local object URL — still valid since a failed send's
+ * optimistic entry is never revoked — refetched into a real Blob/File so the
+ * exact same attachment can be re-uploaded without the composer needing to have
+ * kept the original File object around.
+ */
+export const retryMessage = createAsyncThunk('messages/retry', async ({ mobile, id, text, mediaUrl, mediaFilename }) => {
+  let files = []
+  if (mediaUrl) {
+    const blob = await fetch(mediaUrl).then((res) => res.blob())
+    files = [new File([blob], mediaFilename || 'file', { type: blob.type })]
+  }
+  const result = await api.sendMessage(mobile, { text, files })
+  return { mobile, id, messages: result.messages }
 })
 
 /** "Send Approved Template" popup's send — see lib/api.js.sendTemplateMessage for what manualValues/file mean. */
@@ -71,6 +97,11 @@ function threadFor(state, mobile) {
 function mergeUnique(existing, incoming) {
   const existingIds = new Set(existing.map((m) => m.id))
   return incoming.filter((m) => !existingIds.has(m.id))
+}
+
+/** A locally-attached image/video's optimistic preview is a `URL.createObjectURL` blob URL — freed once the real, server-hosted URL takes its place so it doesn't leak for the rest of the session. */
+function revokeIfBlobUrl(url) {
+  if (url?.startsWith('blob:')) URL.revokeObjectURL(url)
 }
 
 const messagesSlice = createSlice({
@@ -136,9 +167,60 @@ const messagesSlice = createSlice({
         thread.loadMoreStatus = 'failed'
         thread.loadMoreError = action.error.message
       })
+      // The optimistic bubble(s) MessageComposer.jsx built for this submission —
+      // shown the instant the user hits Send, never hidden while the request is
+      // in flight. See utils/sendPlan.js on the server for the same
+      // one-message-with-a-caption rule these are built to mirror.
+      .addCase(sendMessage.pending, (state, action) => {
+        const thread = threadFor(state, action.meta.arg.mobile)
+        thread.items.push(...(action.meta.arg.optimisticMessages || []))
+      })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const thread = threadFor(state, action.payload.mobile)
+        const optimisticIds = new Set((action.meta.arg.optimisticMessages || []).map((m) => m.id))
+        if (optimisticIds.size > 0) {
+          thread.items.forEach((m) => {
+            if (optimisticIds.has(m.id)) revokeIfBlobUrl(m.media?.url)
+          })
+          thread.items = thread.items.filter((m) => !optimisticIds.has(m.id))
+        }
         thread.items.push(...mergeUnique(thread.items, action.payload.messages))
+      })
+      .addCase(sendMessage.rejected, (state, action) => {
+        // Left in place, not removed — WhatsApp never makes a message disappear
+        // just because sending failed. The blob URL (if any) is deliberately not
+        // revoked here: retryMessage re-fetches it to resend the same attachment.
+        const thread = threadFor(state, action.meta.arg.mobile)
+        const optimisticIds = new Set((action.meta.arg.optimisticMessages || []).map((m) => m.id))
+        thread.items.forEach((m) => {
+          if (optimisticIds.has(m.id)) {
+            m.status = 'failed'
+            m.failedReason = action.error.message
+          }
+        })
+      })
+      .addCase(retryMessage.pending, (state, action) => {
+        const thread = threadFor(state, action.meta.arg.mobile)
+        const message = thread.items.find((m) => m.id === action.meta.arg.id)
+        if (message) {
+          message.status = 'sending'
+          message.failedReason = null
+        }
+      })
+      .addCase(retryMessage.fulfilled, (state, action) => {
+        const thread = threadFor(state, action.payload.mobile)
+        const message = thread.items.find((m) => m.id === action.payload.id)
+        revokeIfBlobUrl(message?.media?.url)
+        thread.items = thread.items.filter((m) => m.id !== action.payload.id)
+        thread.items.push(...mergeUnique(thread.items, action.payload.messages))
+      })
+      .addCase(retryMessage.rejected, (state, action) => {
+        const thread = threadFor(state, action.meta.arg.mobile)
+        const message = thread.items.find((m) => m.id === action.meta.arg.id)
+        if (message) {
+          message.status = 'failed'
+          message.failedReason = action.error.message
+        }
       })
       .addCase(sendTemplateMessage.fulfilled, (state, action) => {
         const thread = threadFor(state, action.payload.mobile)
