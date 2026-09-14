@@ -30,7 +30,7 @@ function buildPreviewText(description, variables, manualValues) {
  * Send is available immediately once a template is selected, exactly like legacy —
  * not gated behind having clicked "View Template Preview" first.
  */
-export function SendTemplateModal({ mobile, ctrId, onClose }) {
+export function SendTemplateModal({ mobile, ctrId, onClose, onSent }) {
   const dispatch = useDispatch()
   const fileInputRef = useRef(null)
 
@@ -88,6 +88,7 @@ export function SendTemplateModal({ mobile, ctrId, onClose }) {
     setIsSending(true)
     try {
       await dispatch(sendTemplateMessage({ mobile, templateId: selectedId, manualValues, file, ctrId })).unwrap()
+      onSent?.()
       onClose()
     } catch (error) {
       setSendError(error.message)
@@ -119,11 +120,13 @@ export function SendTemplateModal({ mobile, ctrId, onClose }) {
               <select
                 value={selectedId}
                 onChange={(event) => selectTemplate(event.target.value ? Number(event.target.value) : '')}
-                className="w-full rounded-md border border-wa-border bg-wa-panel-textarea px-3 py-2 text-sm text-wa-text-primary focus:outline-none"
+                className="w-full rounded-md border border-wa-border bg-wa-panel px-3 py-2 text-sm text-wa-text-primary focus:outline-none"
               >
-                <option value="">--Select--</option>
+                <option value="" className="bg-wa-panel text-wa-text-primary">
+                  --Select--
+                </option>
                 {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
+                  <option key={template.id} value={template.id} className="bg-wa-panel text-wa-text-primary">
                     {template.title}
                   </option>
                 ))}

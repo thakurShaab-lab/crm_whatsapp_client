@@ -30,6 +30,11 @@ export function ChatPanel({ mobile }) {
     loadMoreError: null,
   }
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  // Once an approved template has been sent for this conversation, stop showing the
+  // "WhatsApp Communication Notice" banner for it — useContact never refetches
+  // `windowExpired` on its own, so without this the banner would keep showing a
+  // stale "you can't message them" notice right below a message that was just sent.
+  const [templateSentForMobile, setTemplateSentForMobile] = useState(false)
   const loadingMoreRef = useRef(false)
 
   // The URL carries the same identifying query params the legacy `whatsapp_chat.php`
@@ -44,6 +49,7 @@ export function ChatPanel({ mobile }) {
     if (mobile != null) {
       dispatch(fetchThreadMessages({ mobile, ...chatContext }))
       dispatch(markConversationRead(mobile))
+      setTemplateSentForMobile(false)
     }
   }, [mobile, chatContext, dispatch])
 
@@ -108,14 +114,19 @@ export function ChatPanel({ mobile }) {
           disabled
           disabledReason="This contact replied STOP and can no longer be messaged."
         />
-      ) : contact?.windowExpired ? (
+      ) : contact?.windowExpired && !templateSentForMobile ? (
         <WhatsAppWindowNotice onSendTemplate={() => setShowTemplateModal(true)} />
       ) : (
         <MessageComposer mobile={mobile} onSendTemplate={() => setShowTemplateModal(true)} />
       )}
 
       {showTemplateModal && (
-        <SendTemplateModal mobile={mobile} ctrId={chatContext.ctrId} onClose={() => setShowTemplateModal(false)} />
+        <SendTemplateModal
+          mobile={mobile}
+          ctrId={chatContext.ctrId}
+          onClose={() => setShowTemplateModal(false)}
+          onSent={() => setTemplateSentForMobile(true)}
+        />
       )}
     </div>
   )
