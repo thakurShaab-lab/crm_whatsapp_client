@@ -30,7 +30,7 @@
 }
 
 [data-theme="light"] {
-  --color-wa-bg: #ffffff;
+  --color-wa-bg: #f0f2f5; /* sidebar/app-shell — kept a shade off wa-panel's white so the sidebar is visibly distinct from the chat header/composer */
   --color-wa-panel: #ffffff;
   --color-wa-panel-hover: #f0f2f5;
   --color-wa-panel-textarea: #e5ddd8;
