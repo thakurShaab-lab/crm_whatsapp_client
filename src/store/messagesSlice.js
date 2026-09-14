@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import * as api from '../lib/api'
+import { resolveMediaUrl } from '../lib/apiConfig'
 
 // `context` carries the legacy chat route's query params (ctrId, refid, for, cname,
 // useradminid, wabano, wanum, ...) through to the API — see lib/api.js. Pagination
@@ -59,7 +60,13 @@ export const sendMessage = createAsyncThunk('messages/send', async ({ mobile, te
 export const retryMessage = createAsyncThunk('messages/retry', async ({ mobile, id, text, mediaUrl, mediaFilename }) => {
   let files = []
   if (mediaUrl) {
-    const blob = await fetch(mediaUrl).then((res) => res.blob())
+    // `mediaUrl` is a local blob URL for a still-optimistic entry (resolveMediaUrl
+    // passes those through untouched — see lib/apiConfig.js), but a server-relative
+    // path (e.g. `/media/...`) for a message that already made it to the DB before
+    // failing later (e.g. the vendor itself rejected it) — that one must be resolved
+    // against the API origin, or `fetch` resolves it against this page's own origin
+    // instead and silently refetches the frontend's own HTML.
+    const blob = await fetch(resolveMediaUrl(mediaUrl)).then((res) => res.blob())
     files = [new File([blob], mediaFilename || 'file', { type: blob.type })]
   }
   const result = await api.sendMessage(mobile, { text, files })

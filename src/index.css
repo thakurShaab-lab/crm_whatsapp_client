@@ -11,6 +11,7 @@
   --color-wa-panel: #20282a; /* headers, panels, incoming bubble */
   --color-wa-panel-hover: #20282a; /* list row hover / composer input bg */
   --color-wa-panel-textarea: #000000; /* list row hover / composer input bg */
+  --color-wa-search-bg: #202c33; /* sidebar search box — sits directly on wa-bg (also black in dark mode), so it needs its own distinguishable shade rather than wa-panel-textarea's black-on-black */
   --color-wa-chat-bg: #0b141a; /* message list background (fallback under the wallpaper image) */
   --color-wa-border: #222d34;
   --color-wa-text-primary: #e9edef;
@@ -32,6 +33,8 @@
   --color-wa-bg: #ffffff;
   --color-wa-panel: #ffffff;
   --color-wa-panel-hover: #f0f2f5;
+  --color-wa-panel-textarea: #e5ddd8;
+  --color-wa-search-bg: #e5ddd8;
   --color-wa-chat-bg: #efeae2;
   --color-wa-border: #ffffff;
   --color-wa-text-primary: #111b21;

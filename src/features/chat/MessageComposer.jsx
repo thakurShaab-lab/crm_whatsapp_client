@@ -120,9 +120,14 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   }
 
   /** A finished voice recording is sent through the exact same pipeline as any other attached file — no parallel send path. */
-  async function handleSendVoiceMessage({ blob, mimeType }) {
+  async function handleSendVoiceMessage({ blob, mimeType, durationMs }) {
     if (sendingRef.current || !blob) return
     const file = new File([blob], `voice-message.${extensionForMimeType(mimeType)}`, { type: mimeType || 'audio/webm' })
+    // A fresh local preview URL, separate from the recorder's own (about to be
+    // revoked by recorder.discard() below) — the optimistic bubble owns this one,
+    // and messagesSlice.js's sendMessage.fulfilled/retryMessage revoke it once the
+    // real upload replaces it, exactly like an optimistic image/video preview.
+    const previewUrl = URL.createObjectURL(blob)
 
     // The recording UI returns to normal immediately — the message now lives in
     // the thread as its own bubble, exactly like a just-sent text/image message.
@@ -131,7 +136,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
     sendingRef.current = true
     setSending(true)
     try {
-      const optimisticMessages = buildOptimisticMessages({ mobile, text: '', stagedFiles: [{ file, previewUrl: null }] })
+      const optimisticMessages = buildOptimisticMessages({ mobile, text: '', stagedFiles: [{ file, previewUrl, durationMs }] })
       await dispatch(sendMessage({ mobile, text: '', files: [file], optimisticMessages })).unwrap()
     } catch {
       // Same as above — a failed send shows as a "failed" bubble with its own retry button.
@@ -276,7 +281,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
               )}
             </div>
 
-            <button
+            {/* <button
               type="button"
               onClick={() => cameraInputRef.current?.click()}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-secondary hover:bg-wa-panel-hover"
@@ -286,8 +291,8 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
               <svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor">
                 <path d="M9.4 3 7.8 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.8L14.6 3zM12 18a5 5 0 1 1 0-10 5 5 0 0 1 0 10m0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6" />
               </svg>
-            </button>
-            <input
+            </button> */}
+            {/* <input
               ref={cameraInputRef}
               type="file"
               accept="image/*,video/*"
@@ -298,7 +303,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
                 if (files.length > 0) addFiles(files)
                 event.target.value = ''
               }}
-            />
+            /> */}
           </div>
         )}
 

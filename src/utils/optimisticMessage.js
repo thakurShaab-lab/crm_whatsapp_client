@@ -40,6 +40,14 @@ export function buildOptimisticMessages({ mobile, text, stagedFiles }) {
     id: makeTempMessageId(),
     type: mediaTypeFor(staged.file),
     text: index === 0 ? trimmed || null : null,
-    media: { url: staged.previewUrl || null, filename: staged.file.name, source: 'local' },
+    media: {
+      url: staged.previewUrl || null,
+      filename: staged.file.name,
+      source: 'local',
+      // Only ever set for a just-recorded voice message (see MessageComposer.jsx's
+      // handleSendVoiceMessage) — lets the bubble show the real duration instantly
+      // instead of waiting on a waveform decode. See messageTypes/AudioMessage.jsx.
+      ...(staged.durationMs ? { durationMs: staged.durationMs } : null),
+    },
   }))
 }

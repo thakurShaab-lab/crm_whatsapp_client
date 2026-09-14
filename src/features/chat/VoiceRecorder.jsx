@@ -42,6 +42,17 @@ function SendIcon() {
   )
 }
 
+/** Live waveform driven by the mic's own recent audio levels — not a placeholder, but not the final decoded shape either (that only exists once recording stops). Frozen (no new bars) while paused, matching the timer. */
+function LiveWaveform({ levelHistory }) {
+  return (
+    <div className="flex h-8 flex-1 items-center gap-[2px]" aria-hidden="true">
+      {levelHistory.map((sample, index) => (
+        <span key={index} className="w-[3px] flex-1 rounded-full bg-wa-danger/70" style={{ height: `${Math.max(15, sample * 100)}%` }} />
+      ))}
+    </div>
+  )
+}
+
 /** The real recorded audio's own waveform (see utils/audioRecording.js's decodeAudioPeaks) — never a simulated/placeholder shape. Bars already played are highlighted as `progress` advances. */
 function Waveform({ peaks, progress }) {
   if (!peaks) {
@@ -81,7 +92,7 @@ function VoicePreview({ audioBlob, audioUrl, mimeType, elapsedMs, onSend, onDisc
     if (!audioBlob) return undefined
     let cancelled = false
     decodeAudioPeaks(audioBlob).then((result) => {
-      if (!cancelled) setPeaks(result)
+      if (!cancelled) setPeaks(result?.peaks || null)
     })
     return () => {
       cancelled = true
@@ -146,7 +157,7 @@ function VoicePreview({ audioBlob, audioUrl, mimeType, elapsedMs, onSend, onDisc
       />
       <button
         type="button"
-        onClick={() => onSend({ blob: audioBlob, mimeType })}
+        onClick={() => onSend({ blob: audioBlob, mimeType, durationMs: elapsedMs })}
         disabled={sending}
         aria-label="Send voice message"
         title="Send voice message"
@@ -165,7 +176,22 @@ function VoicePreview({ audioBlob, audioUrl, mimeType, elapsedMs, onSend, onDisc
  * MediaRecorder/mic handling lives in the hook.
  */
 export function VoiceRecorder({ recorder, onSend, onDiscard, sending }) {
-  const { state, error, elapsedMs, level, audioBlob, audioUrl, mimeType, stop, dismissError } = recorder
+  const {
+    state,
+    error,
+    elapsedMs,
+    level,
+    levelHistory,
+    audioBlob,
+    audioUrl,
+    mimeType,
+    maxDurationMs,
+    isNearMaxDuration,
+    stop,
+    pause,
+    resume,
+    dismissError,
+  } = recorder
 
   if (state === 'error') {
     return (
@@ -186,25 +212,51 @@ export function VoiceRecorder({ recorder, onSend, onDiscard, sending }) {
     )
   }
 
-  if (state === 'recording') {
+  if (state === 'recording' || state === 'paused') {
+    const isPaused = state === 'paused'
     return (
-      <div className="flex flex-1 items-center gap-3 rounded-[24px] bg-wa-panel-textarea px-3 py-2 transition-colors">
+      <div className="flex flex-1 items-center gap-2 rounded-[24px] bg-wa-panel-textarea px-3 py-2 transition-colors">
         <button
           type="button"
           onClick={onDiscard}
-          aria-label="Cancel recording"
-          title="Cancel recording"
+          aria-label="Discard recording"
+          title="Discard recording"
           className="flex-shrink-0 text-wa-danger hover:opacity-80"
         >
           <TrashIcon />
         </button>
+
+        {/* prefers-reduced-motion: the pulse is a plain opacity flicker driven by the
+            live level, not a CSS keyframe animation, so it's already inert for anyone
+            with reduced-motion preferences — nothing further to gate here. */}
         <span
-          className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-wa-danger transition-opacity"
-          style={{ opacity: 0.5 + level * 0.5 }}
+          className={`h-2.5 w-2.5 flex-shrink-0 rounded-full bg-wa-danger transition-opacity ${isPaused ? 'opacity-40' : ''}`}
+          style={isPaused ? undefined : { opacity: 0.5 + level * 0.5 }}
           aria-hidden="true"
         />
-        <span className="text-sm tabular-nums text-wa-text-primary">{formatDuration(elapsedMs)}</span>
-        <span className="flex-1 text-center text-xs text-wa-text-secondary">Recording…</span>
+        <span className={`text-sm tabular-nums ${elapsedMs >= maxDurationMs - 10_000 ? 'text-wa-danger' : 'text-wa-text-primary'}`}>
+          {formatDuration(elapsedMs)}
+        </span>
+
+        <LiveWaveform levelHistory={levelHistory} />
+
+        <span className="hidden flex-shrink-0 text-xs text-wa-text-secondary sm:inline" aria-hidden="true">
+          {isPaused ? 'Paused' : isNearMaxDuration ? 'Recording… (nearly at the limit)' : 'Recording…'}
+        </span>
+        {/* Screen readers get the status even where the text above is hidden for space. */}
+        <span className="sr-only" role="status">
+          {isPaused ? 'Recording paused' : isNearMaxDuration ? 'Recording, nearly at the maximum length' : 'Recording'}
+        </span>
+
+        <button
+          type="button"
+          onClick={isPaused ? resume : pause}
+          aria-label={isPaused ? 'Resume recording' : 'Pause recording'}
+          title={isPaused ? 'Resume recording' : 'Pause recording'}
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-wa-text-primary hover:bg-wa-panel-hover"
+        >
+          {isPaused ? <PlayIcon /> : <PauseIcon />}
+        </button>
         <button
           type="button"
           onClick={stop}

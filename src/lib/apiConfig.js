@@ -15,9 +15,17 @@ export const API_ORIGIN = import.meta.env.DEV ? 'http://localhost:3009' : 'https
 export const API_BASE_PATH = import.meta.env.DEV ? '' : '/crm-whatsapp'
 export const API_BASE_URL = `${API_ORIGIN}${API_BASE_PATH}`
 
-/** Resolves a server-relative path (e.g. `/media/...`) against the API base URL; absolute URLs pass through untouched. */
+/**
+ * Resolves a server-relative path (e.g. `/media/...`) against the API base URL.
+ * Anything that's already a full URL passes through untouched — not just
+ * `http(s)://`, but also a local `blob:`/`data:` URL, exactly what an optimistic
+ * message's own local preview (staged file, just-recorded voice message) uses
+ * before the real upload finishes. Without this, a blob URL would get the API
+ * base wrongly prepended to it (`https://.../apiblob:...`), breaking every
+ * optimistic image/video/audio preview.
+ */
 export function resolveMediaUrl(url) {
   if (!url) return url
-  if (/^https?:\/\//i.test(url)) return url
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return url
   return `${API_BASE_URL}${url}`
 }

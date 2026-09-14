@@ -42,7 +42,14 @@ export function computeWaveformPeaks(audioBuffer, barCount = 40) {
   return peaks.map((peak) => peak / overallMax)
 }
 
-/** Decodes a recorded Blob and returns its real waveform peaks — used by the preview player, never a placeholder shape. */
+/**
+ * Decodes a recorded/downloaded audio Blob into its real waveform peaks plus its
+ * real duration — `AudioBuffer.duration` from a full Web Audio decode is reliable
+ * even for a MediaRecorder-produced WebM/Opus blob, unlike an `<audio>` element's
+ * own `.duration` metadata, which is a well-known Chrome bug (often `Infinity`)
+ * for that exact container. Returns `null` if this browser can't decode audio at
+ * all (no AudioContext) or the bytes aren't a decodable audio format.
+ */
 export async function decodeAudioPeaks(blob, barCount = 40) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext
   if (!AudioContextClass) return null
@@ -51,8 +58,22 @@ export async function decodeAudioPeaks(blob, barCount = 40) {
   const audioContext = new AudioContextClass()
   try {
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-    return computeWaveformPeaks(audioBuffer, barCount)
+    return { peaks: computeWaveformPeaks(audioBuffer, barCount), durationSeconds: audioBuffer.duration }
+  } catch {
+    return null
   } finally {
     audioContext.close().catch(() => {})
+  }
+}
+
+/** Same as `decodeAudioPeaks`, for a voice message already on the server — fetches the bytes first, then decodes exactly the same way, so a received voice message gets the same real waveform/duration as one just recorded locally. */
+export async function decodeAudioPeaksFromUrl(url, barCount = 40) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return decodeAudioPeaks(blob, barCount)
+  } catch {
+    return null
   }
 }

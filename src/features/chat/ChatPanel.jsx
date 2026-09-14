@@ -29,12 +29,6 @@ export function ChatPanel({ mobile }) {
     loadMoreStatus: 'idle',
     loadMoreError: null,
   }
-  const [showTemplateModal, setShowTemplateModal] = useState(false)
-  // Once an approved template has been sent for this conversation, stop showing the
-  // "WhatsApp Communication Notice" banner for it — useContact never refetches
-  // `windowExpired` on its own, so without this the banner would keep showing a
-  // stale "you can't message them" notice right below a message that was just sent.
-  const [templateSentForMobile, setTemplateSentForMobile] = useState(false)
   const loadingMoreRef = useRef(false)
 
   // The URL carries the same identifying query params the legacy `whatsapp_chat.php`
@@ -49,7 +43,6 @@ export function ChatPanel({ mobile }) {
     if (mobile != null) {
       dispatch(fetchThreadMessages({ mobile, ...chatContext }))
       dispatch(markConversationRead(mobile))
-      setTemplateSentForMobile(false)
     }
   }, [mobile, chatContext, dispatch])
 
@@ -108,12 +101,27 @@ export function ChatPanel({ mobile }) {
         />
       )}
 
+      {/* Keyed by `mobile` so switching conversations naturally resets
+          `templateSentForMobile`/`showTemplateModal` via a fresh mount — React's
+          own recommended pattern for "reset this state when a prop changes",
+          rather than an effect (or a ref-in-render trick) explicitly resetting it. */}
+      <ComposerArea key={mobile} mobile={mobile} contact={contact} ctrId={chatContext.ctrId} />
+    </div>
+  )
+}
+
+function ComposerArea({ mobile, contact, ctrId }) {
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  // Once an approved template has been sent for this conversation, stop showing the
+  // "WhatsApp Communication Notice" banner for it — useContact never refetches
+  // `windowExpired` on its own, so without this the banner would keep showing a
+  // stale "you can't message them" notice right below a message that was just sent.
+  const [templateSentForMobile, setTemplateSentForMobile] = useState(false)
+
+  return (
+    <>
       {contact?.stopService ? (
-        <MessageComposer
-          mobile={mobile}
-          disabled
-          disabledReason="This contact replied STOP and can no longer be messaged."
-        />
+        <MessageComposer mobile={mobile} disabled disabledReason="This contact replied STOP and can no longer be messaged." />
       ) : contact?.windowExpired && !templateSentForMobile ? (
         <WhatsAppWindowNotice onSendTemplate={() => setShowTemplateModal(true)} />
       ) : (
@@ -123,11 +131,11 @@ export function ChatPanel({ mobile }) {
       {showTemplateModal && (
         <SendTemplateModal
           mobile={mobile}
-          ctrId={chatContext.ctrId}
+          ctrId={ctrId}
           onClose={() => setShowTemplateModal(false)}
           onSent={() => setTemplateSentForMobile(true)}
         />
       )}
-    </div>
+    </>
   )
 }
