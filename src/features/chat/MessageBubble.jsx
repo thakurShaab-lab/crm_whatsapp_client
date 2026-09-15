@@ -6,6 +6,7 @@ import { AudioMessage } from './messageTypes/AudioMessage.jsx'
 import { DocumentMessage } from './messageTypes/DocumentMessage.jsx'
 import { LocationMessage } from './messageTypes/LocationMessage.jsx'
 import { TickIcon } from './TickIcon.jsx'
+import { MessageErrorTooltip } from './MessageErrorTooltip.jsx'
 import { formatMessageTime } from '../../utils/formatTime'
 import { parseLocationText } from '../../utils/locationText'
 
@@ -36,18 +37,8 @@ function MessageBubbleImpl({ message, onRetry }) {
         <Renderer message={renderMessage} />
         <div className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-wa-text-secondary">
           <span>{formatMessageTime(message.createdAt)}</span>
-          {isOutbound && <TickIcon status={message.status} />}
+          {isOutbound && (message.status === 'failed' ? <MessageErrorTooltip message={message} onRetry={onRetry} /> : <TickIcon status={message.status} />)}
         </div>
-        {message.status === 'failed' && (
-          <div className="mt-1 flex items-center gap-2 text-[11px] text-wa-danger">
-            <span>{message.failedReason || 'Failed to send'}</span>
-            {onRetry && (
-              <button type="button" onClick={() => onRetry(message)} className="font-medium underline underline-offset-2">
-                Tap to retry
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )
