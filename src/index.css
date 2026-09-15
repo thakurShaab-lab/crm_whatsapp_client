@@ -84,3 +84,12 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Native <input type="date"> (the sidebar's Date Filter) ignores an author
+   background-color for its own control surface/calendar-icon/popup unless told
+   which color scheme to render itself in — without this it stays light (a white
+   field, dark-on-dark icon) even while the rest of the app is dark. Light theme
+   is untouched, since the browser's own default is already light. */
+[data-theme="dark"] input[type="date"] {
+  color-scheme: dark;
+}

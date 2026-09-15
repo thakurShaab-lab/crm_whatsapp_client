@@ -1,15 +1,17 @@
 import { useState } from 'react'
 
 /**
- * Static map preview via OpenStreetMap's free tile-render service — no API key needed.
- * Falls back to a plain pin card if that service can't be reached, so a network hiccup
- * never leaves an empty bubble.
+ * Static map preview via Wikimedia's free OSM-based map-image service — no API key
+ * needed (staticmap.openstreetmap.de, used here previously, has been shut down —
+ * that domain no longer resolves at all, which is why the preview stopped
+ * appearing). Falls back to a plain pin card if the service still can't be
+ * reached, so a network hiccup never leaves an empty bubble.
  */
 export function LocationMessage({ message }) {
   const { latitude, longitude } = message.location || {}
   const [imageFailed, setImageFailed] = useState(false)
   const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`
-  const previewUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=280x160&markers=${latitude},${longitude},red-pushpin`
+  const previewUrl = `https://maps.wikimedia.org/img/osm-intl,16,${latitude},${longitude},256x160.png`
 
   return (
     <a
