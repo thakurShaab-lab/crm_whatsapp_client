@@ -44,7 +44,7 @@ export function ConversationListItem({ conversation, active, onClick }) {
   }
 
   return (
-    <div className={`group relative flex w-full items-center gap-3 px-3 py-3 transition-colors ${active ? 'bg-wa-panel-hover' : 'hover:bg-wa-panel'}`}>
+    <div className={`group relative flex w-full items-center gap-3 border-b border-wa-list-divider px-3 py-3 transition-colors ${active ? 'bg-wa-panel-hover' : 'hover:bg-wa-panel'}`}>
       <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <div
           className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
@@ -53,7 +53,7 @@ export function ConversationListItem({ conversation, active, onClick }) {
           {initialsFor(name || mobile)}
         </div>
 
-        <div className="min-w-0 flex-1 border-b border-wa-list-divider pb-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-[15px] text-wa-text-primary">{name || mobile}</span>
             <span
