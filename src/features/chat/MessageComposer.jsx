@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { setDraft, clearDraft, toggleAttachmentMenu, toggleEmojiPicker, closeMenus } from '../../store/uiSlice'
 import { sendMessage } from '../../store/messagesSlice'
-import { formatLocationText } from '../../utils/locationText'
-import { buildOptimisticMessages, makeTempMessageId } from '../../utils/optimisticMessage'
+import { buildOptimisticMessages } from '../../utils/optimisticMessage'
+import { checkFileSizeLimit } from '../../utils/mediaLimits'
 import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import { AttachmentMenu } from './AttachmentMenu.jsx'
 import { EmojiPickerPopover } from './EmojiPickerButton.jsx'
 import { VoiceRecorder } from './VoiceRecorder.jsx'
+import { LocationShareModal } from './LocationShareModal.jsx'
 
 // Matches the MediaRecorder mimeType this browser actually recorded with (see
 // utils/audioRecording.js's getSupportedAudioMimeType) to a sensible filename
@@ -28,7 +29,8 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   const emojiPickerOpen = useSelector((state) => state.ui.emojiPickerOpen)
 
   const [stagedFiles, setStagedFiles] = useState([])
-  const [stagedLocations, setStagedLocations] = useState([])
+  const [attachmentError, setAttachmentError] = useState(null)
+  const [showLocationModal, setShowLocationModal] = useState(false)
   const [sending, setSending] = useState(false)
   const textareaRef = useRef(null)
   const cameraInputRef = useRef(null)
@@ -42,7 +44,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   // the second call's guard below always sees the true, current value.
   const sendingRef = useRef(false)
 
-  const hasContent = draft.trim().length > 0 || stagedFiles.length > 0 || stagedLocations.length > 0
+  const hasContent = draft.trim().length > 0 || stagedFiles.length > 0
   const canSend = !sending && hasContent
   const isRecorderActive = recorder.state !== 'idle'
 
@@ -69,8 +71,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
     if (sendingRef.current) return
     const text = draft.trim()
     const files = stagedFiles.map((f) => f.file)
-    const locations = stagedLocations
-    if (!text && files.length === 0 && locations.length === 0) return
+    if (!text && files.length === 0) return
 
     sendingRef.current = true
     setSending(true)
@@ -80,35 +81,13 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
     // `sendingRef` alone would have blocked it.
     dispatch(clearDraft(mobile))
     setStagedFiles([])
-    setStagedLocations([])
+    setAttachmentError(null)
 
     try {
-      if (text || files.length > 0) {
-        // Shown in the thread immediately (status 'sending') — see
-        // messagesSlice.js's sendMessage.pending; never hidden while in flight.
-        const optimisticMessages = buildOptimisticMessages({ mobile, text, stagedFiles })
-        await dispatch(sendMessage({ mobile, text, files, optimisticMessages })).unwrap()
-      }
-      // Each shared location becomes its own message (the composer's single text field
-      // can only carry one body per call) — and its own optimistic bubble.
-      for (const location of locations) {
-        const locationText = formatLocationText(location.latitude, location.longitude)
-        const optimisticMessages = [
-          {
-            id: makeTempMessageId(),
-            mobile,
-            direction: 'outbound',
-            type: 'text',
-            text: locationText,
-            media: null,
-            status: 'sending',
-            failedReason: null,
-            vendorMessageId: null,
-            createdAt: new Date().toISOString(),
-          },
-        ]
-        await dispatch(sendMessage({ mobile, text: locationText, optimisticMessages })).unwrap()
-      }
+      // Shown in the thread immediately (status 'sending') — see
+      // messagesSlice.js's sendMessage.pending; never hidden while in flight.
+      const optimisticMessages = buildOptimisticMessages({ mobile, text, stagedFiles })
+      await dispatch(sendMessage({ mobile, text, files, optimisticMessages })).unwrap()
     } catch {
       // The failed message itself (with a retry affordance) already shows this
       // in the thread — see messagesSlice.js's sendMessage.rejected — so nothing
@@ -154,9 +133,25 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
   }
 
   function addFiles(files) {
+    const accepted = []
+    let firstError = null
+    for (const file of files) {
+      const error = checkFileSizeLimit(file)
+      if (error) {
+        firstError = firstError || error
+      } else {
+        accepted.push(file)
+      }
+    }
+    // Only ever shows the first rejection at a time — matches every other
+    // inline error in this composer (e.g. AttachmentMenu.jsx's location error),
+    // which are single, transient messages, not a stacked list.
+    setAttachmentError(firstError)
+    if (accepted.length === 0) return
+
     setStagedFiles((prev) => [
       ...prev,
-      ...files.map((file) => ({
+      ...accepted.map((file) => ({
         file,
         id: `${file.name}-${file.size}-${Math.random()}`,
         // Also used as the optimistic message bubble's own media.url the instant
@@ -167,16 +162,8 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
     ])
   }
 
-  function addLocation(location) {
-    setStagedLocations((prev) => [...prev, { id: `loc-${Math.random()}`, ...location }])
-  }
-
   function removeStagedFile(id) {
     setStagedFiles((prev) => prev.filter((f) => f.id !== id))
-  }
-
-  function removeStagedLocation(id) {
-    setStagedLocations((prev) => prev.filter((l) => l.id !== id))
   }
 
   if (disabled) {
@@ -189,7 +176,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
 
   return (
     <div className="relative flex-shrink-0 border-t border-wa-border bg-wa-panel px-3 py-2">
-      {(stagedFiles.length > 0 || stagedLocations.length > 0) && (
+      {stagedFiles.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2 border-b border-wa-border pb-2">
           {stagedFiles.map((staged) => (
             <div key={staged.id} className="relative">
@@ -212,24 +199,10 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
               </button>
             </div>
           ))}
-          {stagedLocations.map((location) => (
-            <div key={location.id} className="relative">
-              <div className="flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded bg-wa-panel-hover text-wa-text-secondary">
-                <span className="text-lg">📍</span>
-                <span className="text-[10px]">Location</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeStagedLocation(location.id)}
-                className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-wa-bg text-xs text-wa-text-primary shadow"
-                aria-label="Remove location"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
         </div>
       )}
+
+      {attachmentError && <div className="mb-2 text-xs text-wa-danger">{attachmentError}</div>}
 
       <div className="flex items-end gap-2">
         {isRecorderActive ? (
@@ -274,7 +247,7 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
               {attachmentMenuOpen && (
                 <AttachmentMenu
                   onFilesSelected={addFiles}
-                  onLocationSelected={addLocation}
+                  onOpenLocationPicker={() => setShowLocationModal(true)}
                   onTemplateSelected={onSendTemplate}
                   onClose={() => dispatch(closeMenus())}
                 />
@@ -336,12 +309,21 @@ export function MessageComposer({ mobile, disabled, disabledReason, onSendTempla
           ))}
       </div>
 
+      <div className="mt-2 rounded border border-yellow-200 bg-yellow-50 px-2 py-1 text-[11px] text-gray-800">
+        <span className="font-semibold">Note:</span> Max Size: <span className="font-semibold">Image:</span> Up to{' '}
+        <span className="font-semibold">5MB</span>, <span className="font-semibold">Video:</span> Up to{' '}
+        <span className="font-semibold">16MB</span>, <span className="font-semibold">Doc:</span> Up to{' '}
+        <span className="font-semibold">100MB</span>
+      </div>
+
       {emojiPickerOpen && (
         <EmojiPickerPopover
           onSelect={(emoji) => dispatch(setDraft({ mobile, text: draft + emoji }))}
           onClose={() => dispatch(closeMenus())}
         />
       )}
+
+      {showLocationModal && <LocationShareModal mobile={mobile} onClose={() => setShowLocationModal(false)} />}
     </div>
   )
 }

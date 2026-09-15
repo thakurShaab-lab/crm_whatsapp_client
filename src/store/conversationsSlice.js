@@ -3,14 +3,14 @@ import * as api from '../lib/api'
 
 export const fetchConversations = createAsyncThunk(
   'conversations/fetch',
-  async ({ search, filter } = {}) => api.getConversations({ search, filter, limit: 30 }),
+  async ({ search, filter, fromDate, toDate } = {}) => api.getConversations({ search, filter, fromDate, toDate, limit: 30 }),
 )
 
 export const fetchMoreConversations = createAsyncThunk(
   'conversations/fetchMore',
   async (_, { getState }) => {
-    const { search, filter, nextCursor } = getState().conversations
-    return api.getConversations({ search, filter, cursor: nextCursor, limit: 30 })
+    const { search, filter, fromDate, toDate, nextCursor } = getState().conversations
+    return api.getConversations({ search, filter, fromDate, toDate, cursor: nextCursor, limit: 30 })
   },
 )
 
@@ -34,6 +34,8 @@ const conversationsSlice = createSlice({
     error: null,
     search: '',
     filter: 'recent',
+    fromDate: null,
+    toDate: null,
   },
   reducers: {
     setSearch(state, action) {
@@ -48,7 +50,16 @@ const conversationsSlice = createSlice({
       if (!conversation) return
       const index = state.items.findIndex((item) => item.mobile === conversation.mobile)
       if (index !== -1) state.items.splice(index, 1)
-      if (state.filter !== 'unread' || conversation.unreadCount > 0) {
+      const matchesUnread = state.filter !== 'unread' || conversation.unreadCount > 0
+      // A live message can arrive while an active date range is showing a past
+      // window — without this it would otherwise always jump to the top of what's
+      // supposed to be a historical, bounded view.
+      const updatedAt = new Date(conversation.updatedAt).getTime()
+      const matchesDateRange =
+        state.filter !== 'dateRange' ||
+        ((!state.fromDate || updatedAt >= new Date(state.fromDate).getTime()) &&
+          (!state.toDate || updatedAt < new Date(state.toDate).getTime() + 24 * 3_600_000))
+      if (matchesUnread && matchesDateRange) {
         state.items.unshift(conversation)
       }
     },
@@ -77,6 +88,8 @@ const conversationsSlice = createSlice({
         state.status = 'loading'
         state.search = action.meta.arg?.search ?? state.search
         state.filter = action.meta.arg?.filter ?? state.filter
+        state.fromDate = action.meta.arg?.fromDate ?? null
+        state.toDate = action.meta.arg?.toDate ?? null
       })
       .addCase(fetchConversations.fulfilled, (state, action) => {
         state.status = 'succeeded'

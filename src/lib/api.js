@@ -18,10 +18,12 @@ async function request(path, options = {}) {
   return response.json()
 }
 
-export function getConversations({ search, filter, cursor, limit } = {}) {
+export function getConversations({ search, filter, fromDate, toDate, cursor, limit } = {}) {
   const params = new URLSearchParams()
   if (search) params.set('search', search)
   if (filter) params.set('filter', filter)
+  if (fromDate) params.set('fromDate', fromDate)
+  if (toDate) params.set('toDate', toDate)
   if (cursor) params.set('cursor', cursor)
   if (limit) params.set('limit', String(limit))
   const query = params.toString()

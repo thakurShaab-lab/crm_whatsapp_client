@@ -3,10 +3,19 @@ import { useDispatch, useSelector } from 'react-redux'
 import { setFilter, fetchConversations } from '../../store/conversationsSlice'
 import { ThemeToggle } from './ThemeToggle.jsx'
 
+const TABS = [
+  { key: 'recent', label: 'All' },
+  { key: 'unread', label: 'Unread' },
+  { key: 'dateRange', label: 'Date Filter' },
+]
+
 export function SidebarHeader({ onNewChat }) {
   const dispatch = useDispatch()
   const filter = useSelector((state) => state.conversations.filter)
   const [inputValue, setInputValue] = useState('')
+  const [fromDateInput, setFromDateInput] = useState('')
+  const [toDateInput, setToDateInput] = useState('')
+  const [dateRangeError, setDateRangeError] = useState(null)
 
   // Debounced so typing a search query doesn't hit the API on every keystroke.
   useEffect(() => {
@@ -19,7 +28,26 @@ export function SidebarHeader({ onNewChat }) {
 
   function handleFilterClick(nextFilter) {
     dispatch(setFilter(nextFilter))
+    setDateRangeError(null)
+    // Switching to Date Filter just reveals the From/To fields — it doesn't apply
+    // any date bound on its own (matches "All", showing everything) until Apply.
     dispatch(fetchConversations({ search: inputValue.trim(), filter: nextFilter }))
+  }
+
+  function handleApplyDateRange() {
+    if (fromDateInput && toDateInput && fromDateInput > toDateInput) {
+      setDateRangeError('"From Date" must be on or before "To Date".')
+      return
+    }
+    setDateRangeError(null)
+    dispatch(fetchConversations({ search: inputValue.trim(), filter: 'dateRange', fromDate: fromDateInput, toDate: toDateInput }))
+  }
+
+  function handleClearDateRange() {
+    setFromDateInput('')
+    setToDateInput('')
+    setDateRangeError(null)
+    dispatch(fetchConversations({ search: inputValue.trim(), filter: 'dateRange' }))
   }
 
   return (
@@ -52,10 +80,7 @@ export function SidebarHeader({ onNewChat }) {
       </div>
 
       <div className="flex gap-2 px-1">
-        {[
-          { key: 'recent', label: 'All' },
-          { key: 'unread', label: 'Unread' },
-        ].map((tab) => (
+        {TABS.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -68,6 +93,49 @@ export function SidebarHeader({ onNewChat }) {
           </button>
         ))}
       </div>
+
+      {filter === 'dateRange' && (
+        <div className="flex flex-wrap items-end gap-2 px-1 pb-1">
+          <label className="flex flex-col text-xs text-wa-text-secondary">
+            From Date
+            <input
+              type="date"
+              value={fromDateInput}
+              max={toDateInput || undefined}
+              onChange={(event) => setFromDateInput(event.target.value)}
+              className="mt-0.5 rounded border border-wa-border bg-wa-panel-textarea px-2 py-1 text-sm text-wa-text-primary focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col text-xs text-wa-text-secondary">
+            To Date
+            <input
+              type="date"
+              value={toDateInput}
+              min={fromDateInput || undefined}
+              onChange={(event) => setToDateInput(event.target.value)}
+              className="mt-0.5 rounded border border-wa-border bg-wa-panel-textarea px-2 py-1 text-sm text-wa-text-primary focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleApplyDateRange}
+            disabled={!fromDateInput && !toDateInput}
+            className="rounded-full bg-wa-green px-3 py-1.5 text-sm font-medium text-white enabled:hover:bg-wa-green-dark disabled:opacity-40"
+          >
+            Apply
+          </button>
+          {(fromDateInput || toDateInput) && (
+            <button
+              type="button"
+              onClick={handleClearDateRange}
+              className="rounded-full px-3 py-1.5 text-sm font-medium text-wa-text-secondary hover:bg-wa-panel"
+            >
+              Clear
+            </button>
+          )}
+          {dateRangeError && <div className="w-full text-xs text-wa-danger">{dateRangeError}</div>}
+        </div>
+      )}
     </div>
   )
 }
