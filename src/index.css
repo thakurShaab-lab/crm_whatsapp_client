@@ -14,6 +14,7 @@
   --color-wa-search-bg: #202c33; /* sidebar search box — sits directly on wa-bg (also black in dark mode), so it needs its own distinguishable shade rather than wa-panel-textarea's black-on-black */
   --color-wa-chat-bg: #0b141a; /* message list background (fallback under the wallpaper image) */
   --color-wa-border: #222d34;
+  --color-wa-list-divider: #222d34; /* sidebar chat-list row bottom border — separate from wa-border since light mode needs a visibly dark line here, unlike wa-border's other (near-invisible-on-white) uses */
   --color-wa-text-primary: #e9edef;
   --color-wa-text-secondary: #8696a0;
   --color-wa-green: #00a884; /* accent, unread badge, active tab */
@@ -37,6 +38,7 @@
   --color-wa-search-bg: #e5ddd8;
   --color-wa-chat-bg: #efeae2;
   --color-wa-border: #ffffff;
+  --color-wa-list-divider: #8696a0;
   --color-wa-text-primary: #111b21;
   --color-wa-text-secondary: #667781;
   --color-wa-green: #00a884;

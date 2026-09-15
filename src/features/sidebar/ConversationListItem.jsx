@@ -53,7 +53,7 @@ export function ConversationListItem({ conversation, active, onClick }) {
           {initialsFor(name || mobile)}
         </div>
 
-        <div className="min-w-0 flex-1 border-b border-wa-border pb-3">
+        <div className="min-w-0 flex-1 border-b border-wa-list-divider pb-3">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-[15px] text-wa-text-primary">{name || mobile}</span>
             <span
