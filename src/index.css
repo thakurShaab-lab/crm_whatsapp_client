@@ -15,6 +15,7 @@
   --color-wa-chat-bg: #0b141a; /* message list background (fallback under the wallpaper image) */
   --color-wa-border: #222d34;
   --color-wa-list-divider: #222d34; /* sidebar chat-list row bottom border — separate from wa-border since light mode needs a visibly dark line here, unlike wa-border's other (near-invisible-on-white) uses */
+  --color-wa-overlay-border: rgba(255, 255, 255, 0.08); /* hairline edge for a floating/glass panel (the Date Filter popover) — translucent so it reads as a subtle edge rather than a hard line, regardless of what's blurred behind it */
   --color-wa-text-primary: #e9edef;
   --color-wa-text-secondary: #8696a0;
   --color-wa-green: #00a884; /* accent, unread badge, active tab */
@@ -39,6 +40,7 @@
   --color-wa-chat-bg: #efeae2;
   --color-wa-border: #ffffff;
   --color-wa-list-divider: #8696a0;
+  --color-wa-overlay-border: rgba(0, 0, 0, 0.08);
   --color-wa-text-primary: #111b21;
   --color-wa-text-secondary: #667781;
   --color-wa-green: #00a884;
@@ -85,6 +87,22 @@ body {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* The Date Filter popover's entrance — a small, quick fade + settle so it feels
+   like a floating panel appearing, not content just popping into place. */
+@keyframes date-filter-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.date-filter-overlay {
+  animation: date-filter-overlay-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Native <input type="date"> (the sidebar's Date Filter) ignores an author
