@@ -62,13 +62,18 @@ export function SidebarHeader({ onNewChat }) {
     setShowDateOverlay(nextFilter === 'dateRange' ? (open) => !open : false)
   }
 
-  function handleApplyDateRange() {
+  // Awaited so the overlay only closes once the filtered list has actually
+  // arrived — closing immediately on click used to leave it sitting on top of
+  // the (still-loading, then already-updated) list underneath, so the result of
+  // "Apply" was never actually visible until the user manually dismissed it.
+  async function handleApplyDateRange() {
     if (fromDateInput && toDateInput && fromDateInput > toDateInput) {
       setDateRangeError('"From Date" must be on or before "To Date".')
       return
     }
     setDateRangeError(null)
-    dispatch(fetchConversations({ search: inputValue.trim(), filter: 'dateRange', fromDate: fromDateInput, toDate: toDateInput }))
+    await dispatch(fetchConversations({ search: inputValue.trim(), filter: 'dateRange', fromDate: fromDateInput, toDate: toDateInput }))
+    setShowDateOverlay(false)
   }
 
   function handleClearDateRange() {

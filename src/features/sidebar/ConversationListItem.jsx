@@ -104,7 +104,7 @@ export function ConversationListItem({ conversation, active, onClick }) {
               onClick={handleDelete}
               className="w-full px-3 py-2 text-left text-sm text-wa-danger hover:bg-wa-panel-hover"
             >
-              Delete chat
+              Delete Record
             </button>
           </div>
         )}
