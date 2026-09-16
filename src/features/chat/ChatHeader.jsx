@@ -10,8 +10,9 @@ export function ChatHeader({ contact, cname }) {
 
   // Prefer the exact name the sidebar was showing when this chat was opened (passed
   // through the URL as `cname`, same as the legacy `whatsapp_chat.php?cname=...`
-  // route) over contact.name, an independently-resolved value from GET /contacts/:mobile
-  // that can land on a different fallback tier and disagree with what was clicked.
+  // route) over contact.name, a server-resolved value (from the thread-fetch
+  // response) that can land on a different fallback tier and disagree with what
+  // was clicked.
   const displayName = cname || contact?.name || contact?.mobile
 
   return (

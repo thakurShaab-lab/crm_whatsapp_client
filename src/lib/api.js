@@ -69,10 +69,6 @@ export function sendMessage(mobile, { text, files }) {
   return request(`/conversations/${mobile}/messages`, { method: 'POST', body: form })
 }
 
-export function getContact(mobile) {
-  return request(`/contacts/${mobile}`)
-}
-
 export function searchContacts(search) {
   const params = new URLSearchParams()
   if (search) params.set('search', search)

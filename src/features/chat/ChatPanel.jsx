@@ -7,7 +7,6 @@ import { MessageList } from './MessageList.jsx'
 import { MessageComposer } from './MessageComposer.jsx'
 import { WhatsAppWindowNotice } from './WhatsAppWindowNotice.jsx'
 import { SendTemplateModal } from './SendTemplateModal.jsx'
-import { useContact } from '../../hooks/useContact'
 import { useConversationSubscription } from '../../hooks/useSocketEvents'
 import { fetchThreadMessages, fetchMoreThreadMessages, retryMessage } from '../../store/messagesSlice'
 import { markConversationRead } from '../../store/conversationsSlice'
@@ -20,7 +19,6 @@ export function ChatPanel({ mobile }) {
   useConversationSubscription(mobile)
   const dispatch = useDispatch()
   const [searchParams] = useSearchParams()
-  const { contact } = useContact(mobile)
   const thread = useSelector((state) => state.messages.byMobile[mobile]) || {
     items: [],
     status: 'idle',
@@ -28,7 +26,12 @@ export function ChatPanel({ mobile }) {
     hasMore: false,
     loadMoreStatus: 'idle',
     loadMoreError: null,
+    contact: null,
   }
+  // The thread-fetch response already carries the contact (see messagesSlice.js's
+  // fetchThreadMessages.fulfilled) — there is no need for a second, separate
+  // `GET /api/contacts/:mobile` round trip just to get the same data a moment later.
+  const { contact } = thread
   const loadingMoreRef = useRef(false)
 
   // The URL carries the same identifying query params the legacy `whatsapp_chat.php`
@@ -113,9 +116,10 @@ export function ChatPanel({ mobile }) {
 function ComposerArea({ mobile, contact, ctrId }) {
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   // Once an approved template has been sent for this conversation, stop showing the
-  // "WhatsApp Communication Notice" banner for it — useContact never refetches
-  // `windowExpired` on its own, so without this the banner would keep showing a
-  // stale "you can't message them" notice right below a message that was just sent.
+  // "WhatsApp Communication Notice" banner for it — `contact.windowExpired` only
+  // updates the next time the thread itself is refetched, so without this the
+  // banner would keep showing a stale "you can't message them" notice right below
+  // a message that was just sent.
   const [templateSentForMobile, setTemplateSentForMobile] = useState(false)
 
   return (
