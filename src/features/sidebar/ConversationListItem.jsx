@@ -39,7 +39,7 @@ export function ConversationListItem({ conversation, active, onClick }) {
 
   function handleDelete() {
     setMenuOpen(false)
-    const confirmed = window.confirm(`Delete this chat with ${name || mobile}? This permanently deletes all its messages and cannot be undone.`)
+    const confirmed = window.confirm(`Are you sure you want to DELETE this chat with ${name || mobile} permanently?`)
     if (confirmed) dispatch(deleteConversation(mobile))
   }
 
