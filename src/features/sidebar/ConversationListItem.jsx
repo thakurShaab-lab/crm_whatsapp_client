@@ -44,10 +44,14 @@ export function ConversationListItem({ conversation, active, onClick }) {
   }
 
   return (
-    <div className={`group relative flex w-full items-center gap-3 border-b border-wa-list-divider px-3 py-3 transition-colors ${active ? 'bg-wa-panel-hover' : 'hover:bg-wa-panel'}`}>
+    <div
+      className={`group relative flex w-full items-center gap-3 border-b border-l-4 border-wa-list-divider px-3 py-3 transition-colors ${
+        active ? 'border-l-wa-green bg-wa-panel-hover' : 'border-l-transparent hover:bg-wa-panel'
+      }`}
+    >
       <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <div
-          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm"
           style={{ backgroundColor: avatarColor || '#546069' }}
         >
           {initialsFor(name || mobile)}
@@ -55,7 +59,7 @@ export function ConversationListItem({ conversation, active, onClick }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-[15px] text-wa-text-primary">{name || mobile}</span>
+            <span className="truncate text-[15px] font-medium text-wa-text-primary">{name || mobile}</span>
             <span
               className={`flex-shrink-0 text-xs group-hover:invisible ${unreadCount > 0 ? 'text-wa-green' : 'text-wa-text-secondary'}`}
             >
