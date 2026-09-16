@@ -46,7 +46,12 @@ export function ConversationListItem({ conversation, active, onClick }) {
   return (
     <div
       className={`group relative flex w-full items-center gap-3 border-b border-l-4 border-wa-list-divider px-3 py-3 transition-colors ${
-        active ? 'border-l-wa-green bg-wa-panel-hover' : 'border-l-transparent hover:bg-wa-panel'
+        // Active gets its own green-tinted background, deliberately not the same
+        // bg-wa-panel-hover a plain :hover uses — sharing that tone made the
+        // selected chat impossible to tell apart from whatever row the mouse
+        // happened to be over (the left accent bar alone was too subtle to notice
+        // at the sidebar's very edge).
+        active ? 'border-l-wa-green bg-wa-green/10 hover:bg-wa-green/15' : 'border-l-transparent hover:bg-wa-panel'
       }`}
     >
       <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-3 text-left">
